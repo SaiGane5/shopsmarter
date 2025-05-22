@@ -1,0 +1,56 @@
+# === Python (Flask) ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+env/
+venv/
+ENV/
+.venv/
+instance/
+*.db
+*.sqlite3
+
+# Flask environment variables
+*.env
+.env.*
+
+# === Node.js (React) ===
+node_modules/
+build/
+dist/
+.npm/
+.cache/
+*.log
+.env.local
+.env.development
+.env.production
+.env.test
+
+# === System Files ===
+.DS_Store
+Thumbs.db
+
+# === VSCode Settings ===
+.vscode/
+
+# === Testing and Coverage ===
+coverage/
+htmlcov/
+*.cover
+*.py,cover
+.cache/
+pytest_cache/
+nosetests.xml
+coverage.xml
+*.lcov
+
+# === Optional: Docker ===
+*.pid
+*.sock
+docker-compose.override.yml
+
+# === Logs ===
+*.log
+logs/
