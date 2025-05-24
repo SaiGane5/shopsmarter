@@ -1,224 +1,185 @@
-# ShopSmarter: Visual Fashion Search Platform
+# Shop Smarter: Visual Fashion Search Application
 
-ShopSmarter is a full-stack web application that leverages computer vision, AI, and seamless payment integration to deliver a next-generation fashion shopping experience. Users can upload images to visually search for similar products, get personalized recommendations, and securely check out—all in a responsive, modern UI.
-
----
+Shop Smarter is a full-stack application that allows users to search for fashion products using images. The application uses computer vision and machine learning to analyze uploaded images and recommend similar products.
 
 ## Features
 
-- **Visual Search**: Upload an image to find visually similar fashion products using AI-powered feature extraction.
-- **Personalized Recommendations**: Receive tailored product suggestions based on visual features and user preferences.
-- **Shopping Cart & Checkout**: Add products to a cart and complete purchases with Stripe integration.
-- **User Profiles**: Save preferences for improved recommendations and a more personalized experience.
-- **Responsive Design**: Mobile-first UI for seamless use on all devices.
-- **Robust API**: RESTful endpoints for all core features.
-
----
+- **Visual Search**: Upload images to find similar fashion products
+- **Product Recommendations**: Get personalized product recommendations based on visual features
+- **Shopping Cart**: Add products to cart and proceed to checkout
+- **User Preferences**: Save preferences for better recommendations
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## Tech Stack
 
 ### Backend
-- **Flask** (Python web framework)
-- **PyTorch & OpenAI CLIP** (image embeddings)
-- **FAISS** (vector similarity search)
-- **Stripe API** (secure payments)
-- **Google Gemini API** (advanced image analysis)
-- **Flask-SQLAlchemy** (database ORM)
-- **SQLite** (default DB, easily swappable)
+- Flask (Python web framework)
+- PyTorch & CLIP (for image feature extraction)
+- FAISS (for efficient similarity search)
+- SQLite (database)
+- Google Gemini API (for image feature extraction)
 
 ### Frontend
-- **React** (SPA UI)
-- **TailwindCSS** (utility-first styling)
-- **React Context API** (state management)
-- **React Router** (routing)
+- React (UI library)
+- TailwindCSS (styling)
+- Context API (state management)
 
----
-
-## Project Structure
-
-```
-shopsmarter/
-├── backend/        # Flask backend (API, image analysis, checkout)
-├── frontend/       # React frontend (UI, context, routing)
-├── data/           # Product and image data files
-├── scripts/        # Utility/data loading scripts (if any)
-```
-
----
-
-## Setup Instructions
+## Project Setup
 
 ### Prerequisites
-
 - Python 3.9+
 - Node.js 16+
-- npm (or yarn)
+- npm or yarn
 - Git
 
----
+### Backend Setup
 
-### Backend Setup (Flask)
+1. Clone the repository:
+```bash
+git clone https://github.com/SaiGane5/shop-smarter.git
+cd shop-smarter/backend
+```
 
-1. **Clone the Repository**
-    ```bash
-    git clone https://github.com/SaiGane5/shopsmarter.git
-    cd shopsmarter/backend
-    ```
+2. Create and activate a virtual environment:
+```bash
+python -m venv .venv
+# On Windows
+.venv\Scripts\activate
+# On macOS/Linux
+source .venv/bin/activate
+```
 
-2. **Create and Activate a Virtual Environment**
-    ```bash
-    python -m venv .venv
-    # On Windows
-    .venv\Scripts\activate
-    # On macOS/Linux
-    source .venv/bin/activate
-    ```
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-3. **Install Python Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
+4. Set up environment variables:
+```bash
+# Create a .env file in the backend directory
+touch .env
 
-4. **Configure Environment Variables**
+# Add the following to the .env file
+FLASK_APP=app.py
+FLASK_ENV=development
+GEMINI_API_KEY=your_gemini_api_key
+STRIPE_API_KEY=your_stripe_api_key
+```
 
-    Create a `.env` file in the `backend` directory:
-    ```
-    GEMINI_API_KEY=your_gemini_api_key
-    STRIPE_API_KEY=your_stripe_api_key
-    ```
+5. Initialize the database:
+```bash
+flask db init
+flask db migrate
+flask db upgrade
+```
 
-    Add any other environment variables required by your application.
+6. Load sample data:
+```bash
+python -m services.load_data
+```
 
-5. **Load Product and Image Data**
+7. Start the backend server:
+```bash
+flask run
+```
 
-    - Place all product data files (e.g., CSV or JSON with product details) and product images into the `data/` directory at the root level.
-    - If you have a script for data import (e.g., `load_data.py` or similar in the `scripts/` or `backend/` folder), run it after placing files in `data/`:
+The backend server will be running at http://localhost:5000
 
-      ```bash
-      # Example (adjust if your script is named differently)
-      python ../scripts/load_data.py
-      # or
-      python services/load_data.py
-      ```
+### Frontend Setup
 
-    - Ensure the backend has read access to these files and folders.
+1. Navigate to the frontend directory:
+```bash
+cd ../frontend
+```
 
-6. **Start the Backend Server**
-    ```bash
-    python app.py
-    ```
-    By default, the server runs at `http://localhost:8000`.
+2. Install dependencies:
+```bash
+npm install
+```
 
----
+3. Create environment file:
+```bash
+# Create a .env file in the frontend directory
+touch .env
 
-### Frontend Setup (React)
+# Add the following to the .env file
+REACT_APP_API_URL=http://localhost:5000
+```
 
-1. **Install Dependencies**
-    ```bash
-    cd ../frontend
-    npm install
-    ```
+4. Start the development server:
+```bash
+npm start
+```
 
-2. **Configure Frontend Environment**
+The frontend application will be running at http://localhost:3000
 
-    (Optional) Create a `.env` in the `frontend` folder to override the API URL:
-    ```
-    REACT_APP_API_URL=http://localhost:8000
-    ```
+## Development Workflow
 
-3. **Start the React App**
-    ```bash
-    npm start
-    ```
-    The development server runs at `http://localhost:3000`.
+### Backend Development
 
----
+- The backend is structured as a Flask application with blueprints for different features
+- The `services` directory contains core functionality like image analysis and vector search
+- The `database` directory contains database models and migration scripts
 
-## Data Loading Instructions
+### Frontend Development
 
-1. **Prepare Data Files**
-    - Place all initial product data and images in the `data/` directory at the root of the repository.
-    - Example file structure:
-        ```
-        data/
-        ├── products.csv
-        ├── images/
-        │   ├── img001.jpg
-        │   ├── img002.jpg
-        │   └── ...
-        ```
-
-2. **Run Data Import Script**
-    - If your backend or scripts folder includes a data loader (e.g., `load_data.py`), run:
-      ```bash
-      python ../scripts/load_data.py
-      # or if inside backend
-      python services/load_data.py
-      ```
-    - The script should populate your database and image index for search/recommendation features.
-
-    > **Note:** If you need to load new data in the future, repeat these steps with updated files.
-
----
-
-## Core Features – Module Documentation
-
-### Backend (Flask)
-
-- **Image Analysis**: Receives uploaded images, extracts embeddings using OpenAI CLIP and Gemini, and stores results.
-- **Recommendations**: Returns visually similar products using FAISS and custom logic.
-- **Checkout**: Integrates Stripe for secure payments.
-- **User Management**: Handles user preferences and session data.
-- **Blueprints**: Modular route organization (`/api/image`, `/api/recommendations`, `/api/checkout`, `/api/user`).
-
-### Frontend (React)
-
-- **Home Page**: Upload UI, onboarding, and feature highlights.
-- **Results Page**: Displays visually similar products and recommendations.
-- **Checkout Page**: Cart and payment integration.
-- **Reusable Components**: Modular, maintainable UI components.
-- **Context Providers**: Centralized theme and state management.
-
----
-
-## Environment Variables
-
-### Backend
-
-- `.env` (in `/backend`)
-    - `GEMINI_API_KEY`: Google Gemini API key.
-    - `STRIPE_API_KEY`: Stripe secret key.
-
-### Frontend
-
-- `.env` (in `/frontend`)
-    - `REACT_APP_API_URL`: (Optional) Override the backend API endpoint.
-
----
-
-## Development & Contribution
-
-1. Fork this repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit and push your changes
-4. Open a pull request
-
----
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
+- The frontend is a React application with components, contexts, and hooks
+- The `src/components` directory contains reusable UI components
+- The `src/context` directory contains React context providers for state management
+- The `src/pages` directory contains page components
 
 ## Troubleshooting
 
-- **FAISS on macOS**: Use `conda install -c conda-forge faiss-cpu` if you encounter segmentation faults.
-- **API Keys**: Ensure your `.env` files are correctly set for both Gemini and Stripe.
-- **Image Processing Errors**: Confirm PyTorch and CLIP are installed and configured properly.
+### FAISS Issues on macOS
 
----
+If you encounter segmentation faults with FAISS on macOS:
 
-## Contact
+1. Install FAISS using conda instead of pip:
+```bash
+conda install -c conda-forge faiss-cpu
+```
 
-For feature requests or bugs, please open an issue on GitHub.
+2. Or use the traditional similarity search by setting the environment variable:
+```bash
+DISABLE_FAISS=1 flask run
+```
+
+### Image Processing Issues
+
+If you encounter issues with image processing:
+
+1. Make sure the `uploads` directory exists and is writable
+2. Check that your Gemini API key is valid
+3. Ensure that PyTorch is installed correctly
+
+## Deployment
+
+### Backend Deployment
+
+1. Set up a production server (e.g., AWS EC2, Heroku)
+2. Install dependencies and set environment variables
+3. Use Gunicorn as the WSGI server:
+```bash
+gunicorn app:app
+```
+
+### Frontend Deployment
+
+1. Build the production version:
+```bash
+npm run build
+```
+
+2. Deploy the built files to a static hosting service (e.g., Netlify, Vercel)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
