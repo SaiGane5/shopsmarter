@@ -9,57 +9,72 @@ const Checkout = () => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'United States',
-    cardName: '',
-    cardNumber: '',
-    expMonth: '',
-    expYear: '',
-    cvv: ''
-  });
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderNumber, setOrderNumber] = useState('');
+
+  const userId = localStorage.getItem('user_id') || 1;
 
   useEffect(() => {
-    // Get cart from location state or localStorage
     if (location.state && location.state.cart) {
-      setCart(location.state.cart);
+      setCart(location.state.cart.map(item => ({ ...item, quantity: item.quantity || 1 })));
     } else {
       const savedCart = localStorage.getItem('shopsmarter_cart');
       if (savedCart) {
-        setCart(JSON.parse(savedCart));
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart.map(item => ({ ...item, quantity: item.quantity || 1 })));
       } else {
-        // Redirect to home if no cart
         navigate('/');
       }
     }
   }, [location.state, navigate]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
+  // Update localStorage whenever cart changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem('shopsmarter_cart', JSON.stringify(cart));
+      // Dispatch custom event to update navbar cart count
+      window.dispatchEvent(new Event('cartUpdated'));
+    }
+  }, [cart]);
+
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    
+    setCart(prevCart => 
+      prevCart.map(item => 
+        item.id === productId 
+          ? { ...item, quantity: newQuantity }
+          : item
+      )
+    );
+  };
+
+  const removeFromCart = (productId) => {
+    setCart(prevCart => {
+      const newCart = prevCart.filter(item => item.id !== productId);
+      if (newCart.length === 0) {
+        localStorage.removeItem('shopsmarter_cart');
+        window.dispatchEvent(new Event('cartUpdated'));
+        navigate('/');
+      } else {
+        localStorage.setItem('shopsmarter_cart', JSON.stringify(newCart));
+        window.dispatchEvent(new Event('cartUpdated'));
+      }
+      return newCart;
     });
   };
 
   const calculateSubtotal = () => {
-    return cart.reduce((total, item) => total + item.price, 0);
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
   const calculateTax = () => {
-    return calculateSubtotal() * 0.08; // 8% tax
+    return calculateSubtotal() * 0.08;
   };
 
   const calculateShipping = () => {
-    return calculateSubtotal() > 100 ? 0 : 10; // Free shipping over $100
+    return calculateSubtotal() > 100 ? 0 : 10;
   };
 
   const calculateTotal = () => {
@@ -72,30 +87,35 @@ const Checkout = () => {
     setError(null);
 
     try {
+      // Create products array with quantities
+      const products = [];
+      cart.forEach(item => {
+        for (let i = 0; i < item.quantity; i++) {
+          products.push(item.id);
+        }
+      });
+
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          products: cart.map(item => item.id)
+          products: products,
+          user_id: userId
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process checkout');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process checkout');
       }
 
       const data = await response.json();
       
-      // In a real app, you would redirect to Stripe checkout
-      // For demo purposes, we'll just show a success message
+      // Redirect to Stripe Checkout
       window.location.href = `https://checkout.stripe.com/pay/${data.id}`;
 
-      setOrderNumber(`ORDER-${Math.floor(Math.random() * 1000000)}`);
-      
-      // Clear cart
-      localStorage.removeItem('shopsmarter_cart');
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err.message);
@@ -104,30 +124,83 @@ const Checkout = () => {
     }
   };
 
-  const handleContinueShopping = () => {
-    navigate('/');
-  };
+  const CartItem = ({ item }) => (
+    <div className={`flex items-center space-x-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} mb-4`}>
+      <img 
+        className="w-20 h-20 object-cover rounded-lg" 
+        src={item.image_url} 
+        alt={item.name} 
+      />
+      <div className="flex-1">
+        <h3 className="font-semibold text-lg">{item.name}</h3>
+        <p className="text-sm text-gray-500">{item.category}</p>
+        <p className="font-bold text-indigo-600">${item.price.toFixed(2)} each</p>
+      </div>
+      
+      {/* Quantity Controls */}
+      <div className="flex items-center space-x-3">
+        <button
+          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+            darkMode 
+              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
+              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path>
+          </svg>
+        </button>
+        
+        <span className="font-semibold text-lg min-w-[2rem] text-center">{item.quantity}</span>
+        
+        <button
+          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+            darkMode 
+              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
+              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+        </button>
+      </div>
+      
+      {/* Subtotal and Delete */}
+      <div className="flex items-center space-x-4">
+        <div className="text-right">
+          <p className="font-bold text-lg">${(item.price * item.quantity).toFixed(2)}</p>
+        </div>
+        
+        <button
+          onClick={() => removeFromCart(item.id)}
+          className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
+          aria-label="Remove item"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
 
-  if (orderComplete) {
+  if (cart.length === 0) {
     return (
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-        <div className="container mx-auto py-12 px-4">
-          <div className={`max-w-3xl mx-auto p-8 rounded-lg shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-6">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold mb-4">Order Complete!</h2>
-              <p className="text-lg mb-6">Thank you for your purchase. Your order has been processed successfully.</p>
-              <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <p className="text-lg font-semibold">Order Number: {orderNumber}</p>
-                <p className="mt-2">A confirmation email has been sent to {formData.email}</p>
-              </div>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
+        <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8-4-8 4m16 0v18l-8 4-8-4V7m16 18l-8 4-8-4" />
+            </svg>
+            <h2 className="mt-2 text-lg font-medium">Your cart is empty</h2>
+            <p className="mt-1 text-sm text-gray-500">Start shopping to add items to your cart.</p>
+            <div className="mt-6">
               <button
-                onClick={handleContinueShopping}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                onClick={() => navigate('/')}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 Continue Shopping
               </button>
@@ -139,271 +212,82 @@ const Checkout = () => {
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <div className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-8 text-center">Checkout</h1>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
+      <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-extrabold">Shopping Cart</h1>
+          <button
+            onClick={() => navigate('/')}
+            className={`text-sm font-medium ${darkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}
+          >
+            ← Continue Shopping
+          </button>
+        </div>
         
         {error && (
-          <div className="max-w-4xl mx-auto mb-8 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
           </div>
         )}
-        
-        <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto">
-          {/* Checkout Form */}
-          <div className="w-full lg:w-2/3">
-            <form onSubmit={handleSubmit} className={`p-6 rounded-lg shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <h2 className="text-xl font-semibold mb-6">Shipping Information</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-1">First Name</label>
-                  <input
-                    type="text"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-1">Email Address</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                  required
-                />
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-1">Street Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium mb-1">City</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">State</label>
-                  <input
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">ZIP Code</label>
-                  <input
-                    type="text"
-                    name="zip"
-                    value={formData.zip}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-8">
-                <label className="block text-sm font-medium mb-1">Country</label>
-                <select
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                  required
-                >
-                  <option value="United States">United States</option>
-                  <option value="Canada">Canada</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Australia">Australia</option>
-                  <option value="India">India</option>
-                </select>
-              </div>
-              
-              <h2 className="text-xl font-semibold mb-6">Payment Information</h2>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-1">Name on Card</label>
-                <input
-                  type="text"
-                  name="cardName"
-                  value={formData.cardName}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                  required
-                />
-              </div>
-              
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-1">Card Number</label>
-                <input
-                  type="text"
-                  name="cardNumber"
-                  value={formData.cardNumber}
-                  onChange={handleInputChange}
-                  placeholder="XXXX XXXX XXXX XXXX"
-                  className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 mb-8">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Exp. Month</label>
-                  <input
-                    type="text"
-                    name="expMonth"
-                    value={formData.expMonth}
-                    onChange={handleInputChange}
-                    placeholder="MM"
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Exp. Year</label>
-                  <input
-                    type="text"
-                    name="expYear"
-                    value={formData.expYear}
-                    onChange={handleInputChange}
-                    placeholder="YYYY"
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">CVV</label>
-                  <input
-                    type="text"
-                    name="cvv"
-                    value={formData.cvv}
-                    onChange={handleInputChange}
-                    placeholder="XXX"
-                    className={`w-full px-3 py-2 border rounded-lg ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Processing...
-                    </div>
-                  ) : (
-                    'Complete Order'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-          
-          {/* Order Summary */}
-          <div className="w-full lg:w-1/3">
-            <div className={`p-6 rounded-lg shadow-lg ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
-              
-              <div className="max-h-80 overflow-y-auto mb-6">
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Cart Items */}
+          <div className="lg:col-span-2">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
+              <h2 className="text-xl font-semibold mb-6">Cart Items ({cart.length})</h2>
+              <div className="space-y-4">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex items-center py-3 border-b border-gray-200 last:border-b-0">
-                    <div className="w-16 h-16 flex-shrink-0">
-                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover rounded" />
-                    </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-medium">{item.name}</h3>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {item.category}
-                      </p>
-                    </div>
-                    <div className="ml-4 font-medium">
-                      ${item.price.toFixed(2)}
-                    </div>
-                  </div>
+                  <CartItem key={item.id} item={item} />
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6 sticky top-24`}>
+              <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
               
-              <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <div className="flex justify-between mb-2">
-                  <span>Subtotal</span>
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Subtotal ({cart.reduce((total, item) => total + item.quantity, 0)} items)</span>
                   <span>${calculateSubtotal().toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between mb-2">
-                  <span>Tax</span>
+                <div className="flex justify-between">
+                  <span>Tax (8%)</span>
                   <span>${calculateTax().toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between mb-4">
+                <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span>
-                    {calculateShipping() === 0 ? (
-                      <span className="text-green-500">Free</span>
-                    ) : (
-                      `$${calculateShipping().toFixed(2)}`
-                    )}
-                  </span>
+                  <span>{calculateShipping() === 0 ? 'Free' : `$${calculateShipping().toFixed(2)}`}</span>
                 </div>
-                <div className="flex justify-between pt-4 border-t border-gray-300 font-bold">
+                <hr className={`border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`} />
+                <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
                   <span>${calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
+
+              <form onSubmit={handleSubmit} className="mt-6">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-lg text-lg font-medium hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    `Checkout - $${calculateTotal().toFixed(2)}`
+                  )}
+                </button>
+              </form>
               
-              <div className="flex items-center mb-4">
-                <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-                <span>Free shipping on orders over $100</span>
-              </div>
-              
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
-                <span>Secure checkout</span>
-              </div>
+              <p className="text-sm text-gray-500 mt-4 text-center">
+                Secure payment powered by Stripe
+              </p>
             </div>
           </div>
         </div>
