@@ -1,5 +1,3 @@
-Based on the hackathon problem statement and the codebase provided, here's a comprehensive README.md file for the ShopSmarter project:
-
 # ShopSmarter: AI-Powered Personal Shopping Assistant
 
 ## 🏆 IIT Madras AI Hackathon - Theme 1 Submission
