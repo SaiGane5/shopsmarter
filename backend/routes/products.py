@@ -1,9 +1,68 @@
 from flask import Blueprint, request, jsonify
 from database.models import db, Product
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 import traceback
 
 products_bp = Blueprint('products', __name__)
+
+@products_bp.route('/search', methods=['GET'])
+def search_products():
+    """
+    Search products by name, description, or category
+    """
+    try:
+        query = request.args.get('q', '').strip()
+        limit = request.args.get('limit', 20, type=int)
+        category = request.args.get('category', None)
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
+        
+        if not query:
+            return jsonify({'error': 'Search query is required'}), 400
+        
+        print(f"Searching for: '{query}' with limit: {limit}")
+        
+        # Build search query
+        search_query = Product.query
+        
+        # Filter by category if provided
+        if category:
+            search_query = search_query.filter(Product.category.ilike(f'%{category}%'))
+        
+        # Filter by price range
+        if min_price is not None:
+            search_query = search_query.filter(Product.price >= min_price)
+        if max_price is not None:
+            search_query = search_query.filter(Product.price <= max_price)
+        
+        # Search in name, description, and category
+        search_terms = query.split()
+        
+        for term in search_terms:
+            search_filter = or_(
+                Product.name.ilike(f'%{term}%'),
+                Product.description.ilike(f'%{term}%'),
+                Product.category.ilike(f'%{term}%')
+            )
+            search_query = search_query.filter(search_filter)
+        
+        # Execute query and get results
+        products = search_query.limit(limit).all()
+        
+        print(f"Found {len(products)} products")
+        
+        return jsonify({
+            'products': [product.to_dict() for product in products],
+            'total': len(products),
+            'query': query,
+            'limit': limit,
+            'category': category
+        })
+        
+    except Exception as e:
+        print(f"Error in search_products: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to search products', 'details': str(e)}), 500
 
 @products_bp.route('/latest', methods=['GET'])
 def get_latest_products():
@@ -54,47 +113,6 @@ def get_categories():
         print(f"Error in get_categories: {e}")
         return jsonify({'error': 'Failed to fetch categories', 'details': str(e)}), 500
 
-@products_bp.route('/search', methods=['GET'])
-def search_products():
-    """
-    Search products by name, description, or category
-    """
-    try:
-        query = request.args.get('q', '').strip()
-        limit = request.args.get('limit', 20, type=int)
-        category = request.args.get('category', None)
-        
-        if not query:
-            return jsonify({'error': 'Search query is required'}), 400
-        
-        # Build search query
-        search_query = Product.query
-        
-        # Filter by category if provided
-        if category:
-            search_query = search_query.filter(Product.category.ilike(f'%{category}%'))
-        
-        # Search in name, description, and category
-        search_filter = db.or_(
-            Product.name.ilike(f'%{query}%'),
-            Product.description.ilike(f'%{query}%'),
-            Product.category.ilike(f'%{query}%')
-        )
-        
-        products = search_query.filter(search_filter).limit(limit).all()
-        
-        return jsonify({
-            'products': [product.to_dict() for product in products],
-            'total': len(products),
-            'query': query,
-            'limit': limit,
-            'category': category
-        })
-        
-    except Exception as e:
-        print(f"Error in search_products: {e}")
-        return jsonify({'error': 'Failed to search products', 'details': str(e)}), 500
-
 @products_bp.route('/trending', methods=['GET'])
 def get_trending_products():
     """
@@ -105,14 +123,12 @@ def get_trending_products():
         
         limit = request.args.get('limit', 12, type=int)
         
-        # Get products with most interactions in the last 30 days
+        # Get products with most interactions
         trending_query = db.session.query(
             Product,
             func.count(UserHistory.id).label('interaction_count')
         ).join(
             UserHistory, Product.id == UserHistory.product_id
-        ).filter(
-            UserHistory.timestamp >= func.datetime('now', '-30 days')
         ).group_by(
             Product.id
         ).order_by(
@@ -160,52 +176,3 @@ def get_trending_products():
             })
         except Exception as fallback_error:
             return jsonify({'error': 'Failed to fetch trending products', 'details': str(e)}), 500
-
-@products_bp.route('/<int:product_id>', methods=['GET'])
-def get_product_by_id(product_id):
-    """
-    Get a specific product by ID
-    """
-    try:
-        product = Product.query.get(product_id)
-        
-        if not product:
-            return jsonify({'error': 'Product not found'}), 404
-        
-        return jsonify({
-            'product': product.to_dict()
-        })
-        
-    except Exception as e:
-        print(f"Error in get_product_by_id: {e}")
-        return jsonify({'error': 'Failed to fetch product', 'details': str(e)}), 500
-
-@products_bp.route('/stats', methods=['GET'])
-def get_product_stats():
-    """
-    Get general product statistics
-    """
-    try:
-        total_products = Product.query.count()
-        categories = db.session.query(Product.category).distinct().count()
-        
-        # Get price range
-        price_stats = db.session.query(
-            func.min(Product.price).label('min_price'),
-            func.max(Product.price).label('max_price'),
-            func.avg(Product.price).label('avg_price')
-        ).first()
-        
-        return jsonify({
-            'total_products': total_products,
-            'total_categories': categories,
-            'price_range': {
-                'min': float(price_stats.min_price) if price_stats.min_price else 0,
-                'max': float(price_stats.max_price) if price_stats.max_price else 0,
-                'average': round(float(price_stats.avg_price), 2) if price_stats.avg_price else 0
-            }
-        })
-        
-    except Exception as e:
-        print(f"Error in get_product_stats: {e}")
-        return jsonify({'error': 'Failed to fetch product statistics', 'details': str(e)}), 500

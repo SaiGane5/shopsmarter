@@ -81,48 +81,41 @@ const Checkout = () => {
     return calculateSubtotal() + calculateTax() + calculateShipping();
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  // ...imports and component code...
 
-    try {
-      // Create products array with quantities
-      const products = [];
-      cart.forEach(item => {
-        for (let i = 0; i < item.quantity; i++) {
-          products.push(item.id);
-        }
-      });
-
-      const response = await fetch('/api/checkout/create-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          products: products,
-          user_id: userId
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process checkout');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+  try {
+    // Prepare products array as before
+    const products = [];
+    cart.forEach(item => {
+      for (let i = 0; i < item.quantity; i++) {
+        products.push(item.id);
       }
-
-      const data = await response.json();
-      
-      // Redirect to Stripe Checkout
-      window.location.href = `https://checkout.stripe.com/pay/${data.id}`;
-
-    } catch (err) {
-      console.error('Checkout error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    });
+    const response = await fetch('/api/checkout/create-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products, user_id: userId }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to process checkout');
     }
-  };
+    const data = await response.json();
+
+    // Instead of redirecting to Stripe, redirect to your own success page
+    window.location.href = `/success?session_id=${data.id}`;
+  } catch (err) {
+    console.error('Checkout error:', err);
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const CartItem = ({ item }) => (
     <div className={`flex items-center space-x-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} mb-4`}>

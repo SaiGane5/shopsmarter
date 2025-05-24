@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Results from './pages/Results';
 import Checkout from './pages/Checkout';
 import LandingPage from './pages/LandingPage';
+import SearchResults from './pages/SearchResults';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import CheckoutSuccess from './pages/CheckoutSuccess';
@@ -18,10 +19,11 @@ function App() {
       <Router>
         <div className="min-h-screen">
           <Navbar />
-          <div className="pt-16"> {/* Add padding for fixed navbar */}
+          <div className="pt-16">
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/search" element={<Home />} />
+              <Route path="/search-results" element={<SearchResults />} />
               <Route path="/results" element={<Results />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/about" element={<About />} />

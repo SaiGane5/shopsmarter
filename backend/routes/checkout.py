@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 import stripe
 import os
 from database.models import db, Product, User, UserHistory
+import uuid
 
 checkout_bp = Blueprint('checkout', __name__)
 
@@ -10,72 +11,12 @@ stripe.api_key = os.environ.get('STRIPE_API_KEY', 'sk_test_tR3PYbcVNZZ796tH88S4V
 
 @checkout_bp.route('/create-session', methods=['POST'])
 def create_checkout_session():
-    try:
-        data = request.json
-        
-        if not data or 'products' not in data:
-            return jsonify({'error': 'No products provided'}), 400
+    data = request.json
+    if not data or 'products' not in data or not data['products']:
+        return jsonify({'error': 'No products provided'}), 400
 
-        product_ids = data['products']
-        user_id = data.get('user_id', 1)  # Default user_id if not provided
-        
-        if not product_ids:
-            return jsonify({'error': 'Products list is empty'}), 400
+    # Optionally, validate product IDs here
 
-        line_items = []
-        
-        for product_id in product_ids:
-            product = Product.query.get(product_id)
-            if product:
-                line_items.append({
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': product.name,
-                            'description': product.description or '',
-                            'images': [product.image_url] if product.image_url else []
-                        },
-                        'unit_amount': int(product.price * 100),  # Convert to cents
-                    },
-                    'quantity': 1,
-                })
-
-                # Record user interaction
-                if user_id:
-                    try:
-                        history = UserHistory(
-                            user_id=user_id,
-                            product_id=product_id,
-                            interaction_type='checkout'
-                        )
-                        db.session.add(history)
-                    except Exception as e:
-                        print(f"Error recording history: {e}")
-
-        # Commit user interactions
-        if user_id:
-            try:
-                db.session.commit()
-            except Exception as e:
-                print(f"Error committing history: {e}")
-
-        if not line_items:
-            return jsonify({'error': 'No valid products found'}), 400
-
-        # Create Stripe checkout session
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=line_items,
-            mode='payment',
-            success_url=request.headers.get('Origin', 'http://localhost:3000') + '/success?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=request.headers.get('Origin', 'http://localhost:3000') + '/cancel',
-        )
-
-        return jsonify({'id': checkout_session.id})
-
-    except stripe.error.StripeError as e:
-        print(f"Stripe error: {e}")
-        return jsonify({'error': f'Stripe error: {str(e)}'}), 400
-    except Exception as e:
-        print(f"Checkout error: {e}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+    # Simulate a payment session creation
+    fake_session_id = str(uuid.uuid4())
+    return jsonify({'id': fake_session_id})
