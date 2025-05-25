@@ -71,13 +71,37 @@ backend/
 ## 📝 Prompts Used
 
 - **Image Analysis Prompt (Gemini):**  
-  > "Extract key visual features and attributes from this product image for similarity search."
-
-- **NLP Refinement Prompt:**  
-  > "Given a set of product features and a user query, refine the product list to best match the user's intent."
+  > "Analyze this image and extract the following features: 
+        1. Main category (e.g., clothing, electronics, furniture, accessories, shoes, bags)
+        2. Subcategory (e.g., shirt, smartphone, sofa, watch, sneakers, backpack)
+        3. Colors (list 2-3 dominant colors)
+        4. Patterns (if any, e.g., striped, floral, solid, geometric)
+        5. Style/design attributes (e.g., casual, formal, modern, vintage, sporty)
+        6. Material (if identifiable, e.g., cotton, leather, metal, plastic, wood)
+        7. Brand (if visible, otherwise "unknown")
+        
+        Return the response as a clean JSON object with these exact keys:
+        {
+            "main_category": "category_name",
+            "subcategory": "subcategory_name", 
+            "colors": ["color1", "color2"],
+            "patterns": ["pattern1"],
+            "style": ["style1", "style2"],
+            "material": "material_name",
+            "brand": "brand_name"
+        }
+      """
 
 - **Recommendation Prompt:**  
-  > "Suggest visually and semantically similar products based on the provided embedding."
+  > """I have a list of product recommendations:
+        {products}
+        
+        The user has provided the following prompt to refine these results:
+        "{prompt}"
+        
+        Based on this prompt, filter and reorder the products to best match the user's request.
+        Return only the product IDs in order of relevance as a JSON array.
+        """
 
 ---
 

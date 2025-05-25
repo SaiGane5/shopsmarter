@@ -1,194 +1,132 @@
-# ShopSmarter Backend
+# ShopSmarter Frontend
 
-A Flask-based backend for the ShopSmarter AI-powered e-commerce platform. This backend supports image-based and text-based product search, recommendations, and checkout, leveraging state-of-the-art AI models and a curated fashion dataset.
+ShopSmarter is an AI-powered e-commerce platform that lets users discover products visually, search with natural language, and enjoy a seamless shopping experience powered by advanced AI and a modern UI.
 
 ---
 
 ## 🚀 Features
 
-- **Image Analysis:** Upload images and extract visual features using Google's Gemini API and OpenAI CLIP.
-- **Product Recommendations:** AI-powered recommendations using CLIP embeddings and FAISS vector search.
-- **Clothing Matching:** Intelligent outfit coordination suggestions.
-- **User Personalization:** Tailored suggestions based on user history.
-- **RESTful API:** Full-featured API for frontend integration.
+- **Landing Page**: Hero section, trending products, categories, and quick navigation.
+- **Image Upload & Visual Search**: Upload images to find visually similar products using AI.
+- **Smart Text Search**: Fast, AI-powered keyword search with suggestions.
+- **Product Results & Recommendations**: Grid display, add-to-cart, and conversational refinement.
+- **Conversational AI Assistant**: Chat interface to refine searches and get smart recommendations.
+- **Cart & Checkout**: Persistent cart, Stripe-powered secure checkout, and order summary.
+- **User Experience**: Responsive design, dark mode, animated backgrounds, and modern UI.
 
 ---
 
-## 📦 Datasets Used
+## 🛠️ Tech Stack
 
-- **Fashion Product Images (Small) Dataset**  
-  Source: [Hugging Face Datasets](https://huggingface.co/datasets/ashraq/fashion-product-images-small)  
-  - Contains product images and metadata (category, color, gender, etc.)
-  - Used for populating the product catalog and training embeddings.
-
----
-
-## 🤖 Models Used
-
-- **Google Gemini API**  
-  - Used for extracting key visual features from uploaded images.
-
-- **OpenAI CLIP**  
-  - Used for generating image and text embeddings for similarity search and recommendations.
-
-- **FAISS**  
-  - Used for fast vector similarity search over product embeddings.
+- **React**: ^18.2.0
+- **Tailwind CSS**: ^3.1.8
+- **PostCSS**: ^8.4.14
+- **Autoprefixer**: ^10.4.7
+- **Axios**: ^0.27.2
+- **Node.js**: >=14.x recommended
 
 ---
 
-## 📝 Prompts Used
+## 📁 Project Structure
 
-- **Image Analysis Prompt (Gemini):**  
-  > "Extract key visual features and attributes from this product image for similarity search."
-
-- **NLP Refinement Prompt:**  
-  > "Given a set of product features and a user query, refine the product list to best match the user's intent."
-
-- **Recommendation Prompt:**  
-  > "Suggest visually and semantically similar products based on the provided embedding."
+```
+frontend/
+├── .env
+├── package.json
+├── postcss.config.js
+├── tailwind.config.js
+├── public/
+│   └── index.html
+└── src/
+    ├── App.js
+    ├── App.css
+    ├── index.js
+    ├── index.css
+    ├── components/
+    │   ├── ChatInterface.jsx
+    │   ├── Footer.jsx
+    │   ├── ImageUploader.jsx
+    │   ├── Navbar.jsx
+    │   └── ProductCard.jsx
+    ├── context/
+    │   └── ThemeContext.jsx
+    └── pages/
+        ├── About.jsx
+        ├── Checkout.jsx
+        ├── CheckoutCancel.jsx
+        ├── CheckoutSuccess.jsx
+        ├── Contact.jsx
+        ├── ImageUpload.jsx
+        ├── LandingPage.jsx
+        ├── NotFound.jsx
+        ├── Results.jsx
+        └── SearchResults.jsx
+```
 
 ---
 
-## ⚙️ Setup Instructions
-1. **Installing Git:**
-   ```
-   sudo apt install git
-   ```
+## ⚡ Setup Instructions
 
-2. **Cloning the Repository:**
-   ```
-   git clone https://github.com/SaiGane5/shopsmarter.git
-   cd shopsmarter/
-   ```
+### 1. Clone the Repository
 
-3. **Setting Up the Backend:**
-   - Navigate to the backend directory:
-     ```
-     cd backend/
-     ```
+```bash
+sudo apt install git
+git clone https://github.com/SaiGane5/shopsmarter.git
+cd shopsmarter/frontend
+```
 
-   - **Creating the Virtual Environment:**
-     Ensure you have Python 3.13.3. If not, install `pyenv`:
-     ```
-     sudo apt update
-     sudo apt install -y make build-essential libssl-dev zlib1g-dev \
-     libbz2-dev libreadline-dev libsqlite3-dev curl git \
-     llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
-     libxmlsec1-dev libffi-dev liblzma-dev
-     git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-     ```
+### 2. Configure Environment Variables
 
-     Add the following to your `~/.bashrc`:
-     ```
-     export PYENV_ROOT="$HOME/.pyenv"
-     export PATH="$PYENV_ROOT/bin:$PATH"
-     eval "$(pyenv init --path)"
-     eval "$(pyenv init -)"
-     ```
+Create a `.env` file in the `frontend/` directory:
 
-     Source the updated `.bashrc`:
-     ```
-     source ~/.bashrc
-     ```
+```
+GEMINI_API_KEY=your_gemini_api_key_here
+REACT_APP_API_URL=http://localhost:8000/api
+STRIPE_API_KEY=your_stripe_api_key_here
+NODE_ENV=development
+```
 
-     Install Python 3.13.3:
-     ```
-     pyenv install 3.13.3
-     pyenv global 3.13.3
-     ```
+### 3. Install Dependencies
 
-     Install the virtual environment package:
-     ```
-     sudo apt install python3.11-venv
-     python3 -m venv .venv
-     ```
+```bash
+npm install
+```
 
-   - **Activating the Virtual Environment:**
-     ```
-     source .venv/bin/activate
-     ```
+### 4. Start the Frontend
 
-   - **Installing Dependencies:**
-     ```
-     pip install -r requirements.txt
-     pip install datasets
-     ```
+```bash
+npm start
+```
 
-   - **Loading Data:**
-     ```
-     python3 -m services.load_data
-     ```
+The app will run at [http://localhost:3000](http://localhost:3000).
 
-4. **Basic Backend Setup Done.**
+---
 
-5. **Setting Up the Frontend:**
-   - Navigate to the frontend directory:
-     ```
-     cd ..
-     cd frontend
-     ```
+## 🧩 Common Issues & Solutions
 
-   - Install frontend dependencies:
-     ```
-     npm install
-     ```
+- **Missing dependencies**:  
+  Run `npm install` to ensure all packages are installed.
 
-   - Start the frontend application:
-     ```
-     npm start
-     ```
+- **Build errors**:  
+  Check for syntax errors in your React components.
 
-6. **Running the Backend:**
-   - Start the backend server:
-     ```
-     python3 app.py
-     ```
+- **API connection issues**:  
+  Ensure the backend server is running and accessible at the URL in your `.env` (`REACT_APP_API_URL`).
 
-## Project Structure
-- **backend/**
-  - `app.py`: Main Flask application file that initializes the app and registers routes.
-  - `.env`: Environment variables for configuration.
-  - `.gitignore`: Specifies files to ignore in version control.
-  - `app.log`: Log file for application logs.
-  - `README.md`: Documentation for the backend.
-  - `requirements.txt`: List of Python dependencies.
-  - **data/**
-    - `load_data.py`: Script for loading and processing data.
-  - **database/**
-    - `models.py`: Database models for User, Product, etc.
-  - **routes/**
-    - `image_analysis.py`: Routes for image analysis.
-    - `recommendation.py`: Routes for product recommendations.
-    - `products.py`: Routes for product management.
-    - `user.py`: Routes for user management.
-    - `checkout.py`: Routes for checkout processing.
-  - **services/**
-    - `clip_model.py`: Service for handling CLIP model interactions.
-    - `embedding_service.py`: Service for generating embeddings.
-    - `vector_search.py`: Service for vector similarity search.
-    - `nlp_agent.py`: Service for NLP-based refinements.
-    - `load_data.py`: Data loading service.
-  - **static/**
-    - **images/**: Directory for storing product images.
-  - **uploads/**: Directory for temporary uploads.
-  - **utils/**
-    - `preprocess.py`: Utility functions for preprocessing data.
+- **Environment variable issues**:  
+  Make sure your `.env` file is present and correctly configured.
 
-- **frontend/**
-  - `.env`: Environment variables for frontend configuration.
-  - `.gitignore`: Specifies files to ignore in version control.
-  - `package.json`: Lists frontend dependencies and scripts.
-  - `postcss.config.js`: Configuration for PostCSS.
-  - `README.md`: Documentation for the frontend.
-  - `tailwind.config.js`: Configuration for Tailwind CSS.
-  - **public/**
-    - `index.html`: Main HTML file for the frontend application.
-  - **src/**: Source directory for frontend components and logic.
+- **CORS errors**:  
+  The backend must have CORS enabled for `/api/*` endpoints.
 
-## Common Issues and Resolutions
-- **FAISS errors:** Try `pip install faiss-cpu`.
-- **RAM spikes:** Reduce batch sizes in embedding generation.
-- **Missing images:** Confirm presence in `static/images/`.
-- **Invalid API keys:** Ensure `.env` is correctly populated.
+- **Image upload fails**:  
+  Check backend `/api/image/upload` endpoint and file type restrictions.
 
-This documentation provides a comprehensive guide to setting up and running the ShopSmarter application, including the necessary steps for both the backend and frontend components.
+---
+
+## 💡 Professional Tips
+
+- Use `ThemeContext.jsx` to manage dark mode across the app.
+- All API endpoints are prefixed with `/api/` and configured via `.env`.
+- For production, build the frontend with `npm run build` and serve with a static server or integrate with the backend.
+- Keep your dependencies up to date and review `package.json` for version compatibility.
