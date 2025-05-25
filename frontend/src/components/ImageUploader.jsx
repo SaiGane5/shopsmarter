@@ -98,11 +98,19 @@ const ImageUploader = ({ onImageUpload }) => {
           {error}
         </div>
       )}
-      
+
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center ${
-          dragging ? 'border-blue-500 bg-blue-50' : darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-300 bg-gray-50'
-        } transition-colors duration-200`}
+        className={`
+    border-2 border-dashed rounded-2xl shadow-lg
+    p-8 text-center transition-colors duration-200
+    ${
+      dragging
+        ? "border-indigo-500 bg-indigo-50/70"
+        : darkMode
+        ? "border-gray-700 bg-gray-800/80"
+        : "border-gray-200 bg-white/80"
+    }
+  `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -114,14 +122,15 @@ const ImageUploader = ({ onImageUpload }) => {
           </div>
         ) : image ? (
           <div className="flex flex-col items-center">
-            <div className="relative max-h-64 mb-4 rounded overflow-hidden">
-              <img 
-                src={image} 
-                alt="Preview" 
+            <div className="relative max-h-64 mb-4 rounded-xl overflow-hidden shadow">
+              <img
+                src={image}
+                alt="Preview"
                 className="max-h-64 object-contain"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = 'https://via.placeholder.com/400x300?text=Image+Preview';
+                  e.target.src =
+                    "https://via.placeholder.com/400x300?text=Image+Preview";
                 }}
               />
             </div>
@@ -129,11 +138,14 @@ const ImageUploader = ({ onImageUpload }) => {
               onClick={() => {
                 URL.revokeObjectURL(image); // Clean up object URL
                 setImage(null);
-                fileInputRef.current.value = '';
+                fileInputRef.current.value = "";
               }}
-              className={`px-4 py-2 rounded ${
-                darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'
-              } transition`}
+              className={`px-4 py-2 rounded-lg font-medium mt-2
+          ${
+            darkMode
+              ? "bg-gray-700 text-white hover:bg-gray-600"
+              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+          } transition`}
             >
               Upload a different image
             </button>
@@ -141,7 +153,7 @@ const ImageUploader = ({ onImageUpload }) => {
         ) : (
           <div className="py-8">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-12 w-12 text-indigo-400"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -154,20 +166,26 @@ const ImageUploader = ({ onImageUpload }) => {
                 strokeLinejoin="round"
               />
             </svg>
-            <p className="mt-2">Drag and drop an image here, or</p>
+            <p
+              className={`mt-2 font-medium ${
+                darkMode ? "text-gray-200" : "text-gray-700"
+              }`}
+            >
+              Drag and drop an image here, or
+            </p>
             <button
               onClick={handleBrowseClick}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              className="mt-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition"
             >
               Browse files
             </button>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-400">
               PNG, JPG, JPEG up to 10MB
             </p>
           </div>
         )}
       </div>
-      
+
       <input
         type="file"
         ref={fileInputRef}

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure the Gemini API
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "AIzaSyBVCjp6cbCEuzWaJB81XHT2afHvX_6bAVI"))
 
 def refine_recommendations(products, prompt):
     """
