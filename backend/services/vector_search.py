@@ -4,7 +4,22 @@ import os
 import faiss
 import traceback
 from database.models import Product
-
+def get_complementary_products(product):
+    # Define complementary categories for each main category
+    complementary_map = {
+        "shirt": ["pants", "jacket", "accessory"],
+        "dress": ["shoes", "bag", "jewelry"],
+        "sneakers": ["socks", "athletic wear"],
+        "sofa": ["lamp", "decor", "table"],
+        # Add more as needed
+    }
+    categories = complementary_map.get(product.category, [])
+    # Find products in complementary categories with similar color/style
+    return Product.query.filter(
+        Product.category.in_(categories),
+        # Product.gender == product.gender,
+        Product.id != product.id
+    ).limit(8).all()
 def load_faiss_index(index_path='data/embeddings/faiss_index.bin'):
     """
     Load FAISS index for similarity search

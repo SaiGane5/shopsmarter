@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 import ChatInterface from '../components/ChatInterface';
 import ThemeContext from '../context/ThemeContext';
-
+import ComplementaryProducts from "../components/ComplementaryProducts";
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -13,6 +13,18 @@ const Results = () => {
   const [error, setError] = useState(null);
   const [cart, setCart] = useState([]);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [complementary, setComplementary] = useState([]);
+  useEffect(() => {
+    if (products.length > 0) {
+      fetch("/api/recommendations/complementary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: products[0].id }),
+      })
+        .then((res) => res.json())
+        .then((data) => setComplementary(data.complementary_products || []));
+    }
+  }, [products]);
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem("shopsmarter_cart");
@@ -228,14 +240,33 @@ const Results = () => {
                   />
                 ))}
               </div>
+              {complementary.length > 0 && (
+                <ComplementaryProducts products={complementary} />
+              )}
             </div>
           </div>
-
-          <div className="w-full md:w-1/4">
-            <ChatInterface onSendMessage={handleRefineResults} />
-          </div>
+          {/* Remove ChatInterface from here */}
         </div>
       </main>
+
+      {/* Floating Chat Interface */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "32px",
+          right: "32px",
+          zIndex: 50,
+          width: "350px",
+          maxWidth: "90vw",
+        }}
+        className={
+          darkMode
+            ? "bg-gray-800 rounded-lg shadow-lg"
+            : "bg-white rounded-lg shadow-lg"
+        }
+      >
+        <ChatInterface onSendMessage={handleRefineResults} />
+      </div>
 
       {showCheckout && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

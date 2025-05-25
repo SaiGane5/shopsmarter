@@ -1,70 +1,194 @@
-# Getting Started with Create React App
+# ShopSmarter Backend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A Flask-based backend for the ShopSmarter AI-powered e-commerce platform. This backend supports image-based and text-based product search, recommendations, and checkout, leveraging state-of-the-art AI models and a curated fashion dataset.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 🚀 Features
 
-### `npm start`
+- **Image Analysis:** Upload images and extract visual features using Google's Gemini API and OpenAI CLIP.
+- **Product Recommendations:** AI-powered recommendations using CLIP embeddings and FAISS vector search.
+- **Clothing Matching:** Intelligent outfit coordination suggestions.
+- **User Personalization:** Tailored suggestions based on user history.
+- **RESTful API:** Full-featured API for frontend integration.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 📦 Datasets Used
 
-### `npm test`
+- **Fashion Product Images (Small) Dataset**  
+  Source: [Hugging Face Datasets](https://huggingface.co/datasets/ashraq/fashion-product-images-small)  
+  - Contains product images and metadata (category, color, gender, etc.)
+  - Used for populating the product catalog and training embeddings.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## 🤖 Models Used
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- **Google Gemini API**  
+  - Used for extracting key visual features from uploaded images.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **OpenAI CLIP**  
+  - Used for generating image and text embeddings for similarity search and recommendations.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- **FAISS**  
+  - Used for fast vector similarity search over product embeddings.
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 📝 Prompts Used
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- **Image Analysis Prompt (Gemini):**  
+  > "Extract key visual features and attributes from this product image for similarity search."
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- **NLP Refinement Prompt:**  
+  > "Given a set of product features and a user query, refine the product list to best match the user's intent."
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- **Recommendation Prompt:**  
+  > "Suggest visually and semantically similar products based on the provided embedding."
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## ⚙️ Setup Instructions
+1. **Installing Git:**
+   ```
+   sudo apt install git
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+2. **Cloning the Repository:**
+   ```
+   git clone https://github.com/SaiGane5/shopsmarter.git
+   cd shopsmarter/
+   ```
 
-### Code Splitting
+3. **Setting Up the Backend:**
+   - Navigate to the backend directory:
+     ```
+     cd backend/
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+   - **Creating the Virtual Environment:**
+     Ensure you have Python 3.13.3. If not, install `pyenv`:
+     ```
+     sudo apt update
+     sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+     libbz2-dev libreadline-dev libsqlite3-dev curl git \
+     llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
+     libxmlsec1-dev libffi-dev liblzma-dev
+     git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+     ```
 
-### Analyzing the Bundle Size
+     Add the following to your `~/.bashrc`:
+     ```
+     export PYENV_ROOT="$HOME/.pyenv"
+     export PATH="$PYENV_ROOT/bin:$PATH"
+     eval "$(pyenv init --path)"
+     eval "$(pyenv init -)"
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+     Source the updated `.bashrc`:
+     ```
+     source ~/.bashrc
+     ```
 
-### Making a Progressive Web App
+     Install Python 3.13.3:
+     ```
+     pyenv install 3.13.3
+     pyenv global 3.13.3
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+     Install the virtual environment package:
+     ```
+     sudo apt install python3.11-venv
+     python3 -m venv .venv
+     ```
 
-### Advanced Configuration
+   - **Activating the Virtual Environment:**
+     ```
+     source .venv/bin/activate
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+   - **Installing Dependencies:**
+     ```
+     pip install -r requirements.txt
+     pip install datasets
+     ```
 
-### Deployment
+   - **Loading Data:**
+     ```
+     python3 -m services.load_data
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+4. **Basic Backend Setup Done.**
 
-### `npm run build` fails to minify
+5. **Setting Up the Frontend:**
+   - Navigate to the frontend directory:
+     ```
+     cd ..
+     cd frontend
+     ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+   - Install frontend dependencies:
+     ```
+     npm install
+     ```
+
+   - Start the frontend application:
+     ```
+     npm start
+     ```
+
+6. **Running the Backend:**
+   - Start the backend server:
+     ```
+     python3 app.py
+     ```
+
+## Project Structure
+- **backend/**
+  - `app.py`: Main Flask application file that initializes the app and registers routes.
+  - `.env`: Environment variables for configuration.
+  - `.gitignore`: Specifies files to ignore in version control.
+  - `app.log`: Log file for application logs.
+  - `README.md`: Documentation for the backend.
+  - `requirements.txt`: List of Python dependencies.
+  - **data/**
+    - `load_data.py`: Script for loading and processing data.
+  - **database/**
+    - `models.py`: Database models for User, Product, etc.
+  - **routes/**
+    - `image_analysis.py`: Routes for image analysis.
+    - `recommendation.py`: Routes for product recommendations.
+    - `products.py`: Routes for product management.
+    - `user.py`: Routes for user management.
+    - `checkout.py`: Routes for checkout processing.
+  - **services/**
+    - `clip_model.py`: Service for handling CLIP model interactions.
+    - `embedding_service.py`: Service for generating embeddings.
+    - `vector_search.py`: Service for vector similarity search.
+    - `nlp_agent.py`: Service for NLP-based refinements.
+    - `load_data.py`: Data loading service.
+  - **static/**
+    - **images/**: Directory for storing product images.
+  - **uploads/**: Directory for temporary uploads.
+  - **utils/**
+    - `preprocess.py`: Utility functions for preprocessing data.
+
+- **frontend/**
+  - `.env`: Environment variables for frontend configuration.
+  - `.gitignore`: Specifies files to ignore in version control.
+  - `package.json`: Lists frontend dependencies and scripts.
+  - `postcss.config.js`: Configuration for PostCSS.
+  - `README.md`: Documentation for the frontend.
+  - `tailwind.config.js`: Configuration for Tailwind CSS.
+  - **public/**
+    - `index.html`: Main HTML file for the frontend application.
+  - **src/**: Source directory for frontend components and logic.
+
+## Common Issues and Resolutions
+- **FAISS errors:** Try `pip install faiss-cpu`.
+- **RAM spikes:** Reduce batch sizes in embedding generation.
+- **Missing images:** Confirm presence in `static/images/`.
+- **Invalid API keys:** Ensure `.env` is correctly populated.
+
+This documentation provides a comprehensive guide to setting up and running the ShopSmarter application, including the necessary steps for both the backend and frontend components.

@@ -1,11 +1,21 @@
 from flask import Blueprint, request, jsonify
-from services.vector_search import find_similar_products, search_by_image_id
+from services.vector_search import find_similar_products, search_by_image_id, get_complementary_products
 from services.nlp_agent import refine_recommendations
 from database.models import db, Product, User, UserHistory
 import numpy as np
 import traceback
 
 recommendation_bp = Blueprint('recommendation', __name__)
+
+@recommendation_bp.route('/complementary', methods=['POST'])
+def complementary():
+    data = request.json
+    product_id = data.get('product_id')
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    complementary = get_complementary_products(product)
+    return jsonify({"complementary_products": [p.to_dict() for p in complementary]})
 
 @recommendation_bp.route('/similar', methods=['POST'])
 def get_similar_products():

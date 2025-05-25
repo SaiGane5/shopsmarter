@@ -1,293 +1,156 @@
-# ShopSmarter: AI-Powered Personal Shopping Assistant
+# ShopSmarter Documentation
 
-## 🏆 IIT Madras AI Hackathon - Theme 1 Submission
+## Project Overview
+This is an AI-powered e-commerce application named "ShopSmarter." It leverages advanced AI models for image analysis, product recommendations, and user personalization. The application consists of a backend built with Flask and a frontend built with React.
 
-**An intelligent e-commerce solution that revolutionizes online shopping through AI-powered image analysis and personalized recommendations.**
+## Tech Stack
+- **Backend:** Flask (Python 3.13.3)
+- **Frontend:** React
+- **Database:** SQLite (for development)
+- **AI Models:** Google Gemini API, OpenAI CLIP, FAISS
+- **Dependencies:** Listed in `requirements.txt` for the backend and `package.json` for the frontend.
 
----
+## Setup Instructions
 
-## 📋 Problem Statement
-
-Design and develop an AI-powered Personal Shopping Assistant that personalizes the shopping experience for an e-commerce website and automates the process. The system understands visual inputs (apparel, accessories, home decor, gadgets, etc.) and suggests similar or complementary products available in the store.
-
-## 🎯 Project Overview
-
-ShopSmarter is a comprehensive e-commerce platform that leverages cutting-edge AI technologies to provide users with an intuitive shopping experience. Users can upload images of products they like and instantly receive personalized recommendations of similar items available in our catalog.
-
-### Key Features
-
-✅ **Image-Based Product Search** - Upload any product image and find similar items  
-✅ **AI-Powered Recommendations** - CLIP model for visual feature extraction  
-✅ **Text-Based Search** - Traditional search with smart filtering  
-✅ **Personalized Suggestions** - Based on user behavior and preferences  
-✅ **Interactive Chat Interface** - Refine results with natural language prompts  
-✅ **Automated Checkout** - Seamless Stripe payment integration  
-✅ **User History Tracking** - Personalized experience across sessions  
-✅ **Responsive Design** - Dark/Light theme with mobile optimization  
-
-## 🏗️ Technical Architecture
-
-### Backend (Flask)
-```
-/api
-├── /image          # Image upload and analysis
-├── /recommendations # AI-powered product matching
-├── /checkout       # Payment processing
-├── /user           # User management and history
-└── /products       # Product search and catalog
-```
-
-### Frontend (React)
-```
-src/
-├── components/     # Reusable UI components
-├── pages/         # Main application pages
-├── context/       # Theme and state management
-└── utils/         # Helper functions
-```
-
-### AI/ML Pipeline
-```
-Image Upload → CLIP Feature Extraction → FAISS Vector Search → Product Matching → Personalization → Results
-```
-
-## 🛠️ Technologies Used
-
-| Category | Technologies |
-|----------|-------------|
-| **Frontend** | React 18, Tailwind CSS, React Router |
-| **Backend** | Flask, Python 3.9+ |
-| **AI/ML** | OpenAI CLIP, FAISS, NumPy |
-| **Database** | SQLAlchemy, PostgreSQL |
-| **Payments** | Stripe API |
-| **Storage** | Local file system, Vector embeddings |
-| **Deployment** | Docker-ready configuration |
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-- Python 3.9+
-- Node.js 16+
-- PostgreSQL
-- Stripe Account (for payments)
-
-### Backend Setup
+### 1. Installing Git
 ```bash
-# Clone the repository
+sudo apt install git
+```
+
+### 2. Cloning the Repository
+```bash
 git clone https://github.com/SaiGane5/shopsmarter.git
-cd shopsmarter
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set environment variables
-cp .env.example .env
-# Configure your database URL, Stripe keys, etc.
-
-# Initialize database
-python -c "from database.models import init_db; from flask import Flask; app = Flask(__name__); init_db(app)"
-
-# Start the server
-python app.py
+cd shopsmarter/
 ```
 
-### Frontend Setup
+### 3. Setting Up the Backend
+- Navigate to the backend directory:
 ```bash
-# Navigate to frontend directory
+cd backend/
+```
+
+- **Creating the Virtual Environment:**
+Ensure you have Python 3.13.3. If not, install `pyenv`:
+```bash
+sudo apt update
+sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev curl git \
+llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
+libxmlsec1-dev libffi-dev liblzma-dev
+git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+```
+
+Add the following to your `~/.bashrc`:
+```bash
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+```
+
+Source the updated `.bashrc`:
+```bash
+source ~/.bashrc
+```
+
+Install Python 3.13.3:
+```bash
+pyenv install 3.13.3
+pyenv global 3.13.3
+```
+
+Install the virtual environment package:
+```bash
+sudo apt install python3.11-venv
+python3 -m venv .venv
+```
+
+- **Activating the Virtual Environment:**
+```bash
+source .venv/bin/activate
+```
+
+- **Installing Dependencies:**
+```bash
+pip install -r requirements.txt
+pip install datasets
+```
+
+- **Loading Data:**
+```bash
+python3 -m services.load_data
+```
+
+### 4. Basic Backend Setup Done.
+
+### 5. Setting Up the Frontend
+- Navigate to the frontend directory:
+```bash
+cd ..
 cd frontend
+```
 
-# Install dependencies
+- Install frontend dependencies:
+```bash
 npm install
+```
 
-# Start development server
+- Start the frontend application:
+```bash
 npm start
 ```
 
-### Environment Variables
-```env
-STRIPE_API_KEY=sk_test_your_stripe_secret_key
-STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
-DATABASE_URL=postgresql://username:password@localhost/shopsmarter
-FLASK_ENV=development
+### 6. Running the Backend
+- Start the backend server:
+```bash
+python3 app.py
 ```
 
-## 📱 Usage Guide
+## Project Structure
+- **backend/**
+  - `app.py`: Main Flask application file that initializes the app and registers routes.
+  - `.env`: Environment variables for configuration.
+  - `.gitignore`: Specifies files to ignore in version control.
+  - `app.log`: Log file for application logs.
+  - `README.md`: Documentation for the backend.
+  - `requirements.txt`: List of Python dependencies.
+  - **data/**
+    - `load_data.py`: Script for loading and processing data.
+  - **database/**
+    - `models.py`: Database models for User, Product, etc.
+  - **routes/**
+    - `image_analysis.py`: Routes for image analysis.
+    - `recommendation.py`: Routes for product recommendations.
+    - `products.py`: Routes for product management.
+    - `user.py`: Routes for user management.
+    - `checkout.py`: Routes for checkout processing.
+  - **services/**
+    - `clip_model.py`: Service for handling CLIP model interactions.
+    - `embedding_service.py`: Service for generating embeddings.
+    - `vector_search.py`: Service for vector similarity search.
+    - `nlp_agent.py`: Service for NLP-based refinements.
+    - `load_data.py`: Data loading service.
+  - **static/**
+    - **images/**: Directory for storing product images.
+  - **uploads/**: Directory for temporary uploads.
+  - **utils/**
+    - `preprocess.py`: Utility functions for preprocessing data.
 
-### 1. Image-Based Search
-1. Navigate to the search page
-2. Upload an image of any product
-3. AI analyzes the image and extracts visual features
-4. Browse similar products from our catalog
-5. Refine results using natural language prompts
+- **frontend/**
+  - `.env`: Environment variables for frontend configuration.
+  - `.gitignore`: Specifies files to ignore in version control.
+  - `package.json`: Lists frontend dependencies and scripts.
+  - `postcss.config.js`: Configuration for PostCSS.
+  - `README.md`: Documentation for the frontend.
+  - `tailwind.config.js`: Configuration for Tailwind CSS.
+  - **public/**
+    - `index.html`: Main HTML file for the frontend application.
+  - **src/**: Source directory for frontend components and logic.
 
-### 2. Text-Based Search
-1. Use the search bar on the landing page
-2. Enter product names, categories, or descriptions
-3. Apply filters for price range and categories
-4. Browse results and add items to cart
+## Common Issues and Resolutions
+- **FAISS errors:** Try `pip install faiss-cpu`.
+- **RAM spikes:** Reduce batch sizes in embedding generation.
+- **Missing images:** Confirm presence in `static/images/`.
+- **Invalid API keys:** Ensure `.env` is correctly populated.
 
-### 3. Shopping & Checkout
-1. Add desired products to your cart
-2. View cart with quantity controls
-3. Proceed to secure checkout
-4. Complete payment via Stripe
-5. Receive confirmation and order details
-
-## 🔧 API Documentation
-
-### Image Analysis
-```http
-POST /api/image/upload
-Content-Type: multipart/form-data
-
-Parameters:
-- image: File (required) - Product image to analyze
-```
-
-### Product Recommendations
-```http
-POST /api/recommendations/similar
-Content-Type: application/json
-
-{
-  "features": [array of extracted features],
-  "limit": 10,
-  "user_id": 1
-}
-```
-
-### Product Search
-```http
-GET /api/products/search?q=query&limit=20&category=electronics
-```
-
-### Checkout
-```http
-POST /api/checkout/create-session
-Content-Type: application/json
-
-{
-  "products": [1, 2, 3],
-  "user_id": 1
-}
-```
-
-## 🎨 Features Showcase
-
-### AI-Powered Visual Search
-- **CLIP Model Integration**: State-of-the-art vision-language model for feature extraction
-- **FAISS Vector Search**: Efficient similarity search across product embeddings
-- **Multi-modal Recommendations**: Combines visual and textual features
-
-### User Experience
-- **Intuitive Interface**: Clean, modern design with responsive layout
-- **Dark/Light Theme**: Seamless theme switching
-- **Real-time Cart Updates**: Live cart count and localStorage persistence
-- **Interactive Refinement**: Chat-based result filtering
-
-### E-commerce Features
-- **Secure Payments**: Stripe integration with proper error handling
-- **User History**: Track interactions for personalized recommendations
-- **Product Management**: Comprehensive product catalog with categories
-- **Order Management**: Complete checkout flow with success/cancel handling
-
-## 📊 Performance Metrics
-
-- **Search Accuracy**: 95%+ similarity matching
-- **Response Time**: <2 seconds for image analysis
-- **Database**: Optimized queries with indexing
-- **Scalability**: Vector search handles 10M+ products
-- **User Experience**: Mobile-responsive, accessibility compliant
-
-## 🎬 Demo & Presentation
-
-### Live Demo
-- **Hosted URL**: [Demo Link]
-- **Test Images**: Sample product images for testing
-- **Test Cards**: Stripe test card numbers for checkout
-
-### Video Demo
-- **Duration**: 5-7 minutes
-- **Covers**: Complete user journey from image upload to checkout
-- **Highlights**: AI recommendations, personalization, payment flow
-
-## 🏅 Innovation & Market Differentiation
-
-### Novel Features
-1. **Hybrid Search**: Combines visual and text embeddings for better results
-2. **Conversational Refinement**: Natural language interaction for result filtering  
-3. **Personalization Engine**: Learns from user behavior patterns
-4. **Real-time Processing**: Instant image analysis and recommendations
-
-### Market Readiness
-- **Scalable Architecture**: Microservices-ready backend
-- **Production Security**: Proper error handling, data validation
-- **Payment Integration**: Full e-commerce checkout flow
-- **User Analytics**: Comprehensive tracking and insights
-
-## 👥 Team Information
-
-**Team Name**: [White Hats]  
-**Members**: [Imandi Sai Ganesh, Yaswanth Varma, Rushikesh Kapale]  
-**Institution**: [IITM]  
-**Submission Date**: [Date]
-
-## 📁 Project Structure
-
-```
-shopsmarter/
-├── backend/
-│   ├── routes/              # API endpoints
-│   │   ├── image_analysis.py    # Image upload and analysis
-│   │   ├── recommendation.py    # AI-powered recommendations
-│   │   ├── checkout.py          # Stripe payment processing
-│   │   ├── user.py             # User management
-│   │   └── products.py         # Product search and catalog
-│   ├── services/            # Core AI/ML services
-│   │   ├── clip_model.py        # CLIP feature extraction
-│   │   ├── embedding_service.py # Embedding generation
-│   │   ├── vector_search.py     # FAISS similarity search
-│   │   ├── nlp_agent.py         # Gemini NLP processing
-│   │   ├── data_services.py     # Dataset management
-│   │   └── db_service.py        # Database operations
-│   ├── database/            # Database models
-│   │   └── models.py            # SQLAlchemy models
-│   ├── data/                # Data processing scripts
-│   │   ├── load_data.py         # Main data loading script
-│   │   └── rebuild_faiss.py     # Index rebuilding
-│   ├── static/              # Static files (images)
-│   │   └── images/              # Product images
-│   └── app.py              # Main Flask application
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # React components
-│   │   ├── pages/              # Application pages
-│   │   └── context/            # State management
-│   └── public/                 # Static assets
-├── data/
-│   ├── embeddings/             # FAISS indices and embeddings
-│   ├── processed/              # Processed datasets
-│   └── raw/                    # Raw datasets
-└── requirements.txt            # Python dependencies
-
-```
-
-## 🔮 Future Enhancements
-
-- **Voice Search**: Audio input for product queries
-- **AR Try-On**: Virtual product visualization
-- **Social Shopping**: Share and collaborate on purchases
-- **Advanced Analytics**: Detailed user behavior insights
-- **Multi-language Support**: Global market expansion
-
-## 📄 License
-
-This project is developed for the IIT Madras AI Hackathon and follows the competition guidelines.
-
----
-
-**🚀 Ready to revolutionize e-commerce with AI? Try ShopSmarter today!**
+This documentation provides a comprehensive guide to setting up and running the ShopSmarter application, including the necessary steps for both the backend and frontend components.
