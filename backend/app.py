@@ -20,9 +20,9 @@ app = Flask(__name__, static_folder='static')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Add a route to serve static files
-# @app.route('/static/<path:path>')
-# def serve_static(path):
-#     return send_from_directory('static', path)
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 # Register blueprints
 app.register_blueprint(image_analysis_bp, url_prefix='/api/image')
