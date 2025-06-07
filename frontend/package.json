@@ -2,7 +2,8 @@
   "name": "shopsmarter-frontend",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:8000",
+  "proxy": "http://127.0.0.1:8000",
+
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

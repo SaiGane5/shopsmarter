@@ -1,406 +1,707 @@
 import numpy as np
-import json
-import os
 import faiss
+import pickle
+import os
 import traceback
-from database.models import Product
-def get_complementary_products(product):
-    # Define complementary categories for each main category
-    complementary_map = {
-        "shirt": ["pants", "jacket", "accessory"],
-        "dress": ["shoes", "bag", "jewelry"],
-        "sneakers": ["socks", "athletic wear"],
-        "sofa": ["lamp", "decor", "table"],
-        # Add more as needed
-    }
-    categories = complementary_map.get(product.category, [])
-    # Find products in complementary categories with similar color/style
-    return Product.query.filter(
-        Product.category.in_(categories),
-        # Product.gender == product.gender,
-        Product.id != product.id
-    ).limit(8).all()
-def load_faiss_index(index_path='data/embeddings/faiss_index.bin'):
-    """
-    Load FAISS index for similarity search
-    """
-    try:
-        if os.path.exists(index_path):
-            print(f"Loading FAISS index from {index_path}")
-            index = faiss.read_index(index_path)
-            print(f"FAISS index loaded successfully with {index.ntotal} vectors of dimension {index.d}")
-            
-            # Set search parameters for different index types
-            if hasattr(index, 'nprobe'):
-                index.nprobe = min(10, max(1, index.nlist // 10))
-                print(f"Set nprobe to {index.nprobe}")
-            elif hasattr(index, 'hnsw'):
-                index.hnsw.efSearch = 50
-                print("Set HNSW efSearch to 50")
-            
-            return index
-        else:
-            print(f"FAISS index not found at {index_path}")
-            return None
-    except Exception as e:
-        print(f"Error loading FAISS index: {e}")
-        traceback.print_exc()
-        return None
+from database.models import Product, db
+from services.clip_model import extract_features_as_embedding
+from sqlalchemy import func, and_, or_, not_
+import random
 
-def find_similar_products(features, limit=10, index_type='image'):
-    """
-    Find similar products based on extracted features
-    Args:
-        features: Dictionary of extracted features or image path
-        limit: Maximum number of products to return
-        index_type: 'image' or 'text' to specify which index to use
-    Returns:
-        List of product IDs
-    """
-    # Determine which index and embeddings to use
-    if index_type == 'image':
-        index_path = 'data/embeddings/faiss_index.bin'
-        product_ids_path = 'data/embeddings/product_ids.npy'
-    else:
-        index_path = 'data/embeddings/text_faiss_index.bin'
-        product_ids_path = 'data/embeddings/text_product_ids.npy'
-    
-    # Try FAISS search first
-    try:
-        index = load_faiss_index(index_path)
-        if index and os.path.exists(product_ids_path):
-            print(f"Using FAISS {index_type} index for search...")
-            
-            # Convert features to CLIP embedding
-            from services.clip_model import extract_features_as_embedding
-            query_embedding = extract_features_as_embedding(features)
-            
-            # Validate embedding
-            if query_embedding is None or np.allclose(query_embedding, 0):
-                print("Failed to generate valid query embedding")
-                return fallback_search(features, limit)
-            
-            # Debug information
-            print(f"Query embedding shape: {query_embedding.shape}, dtype: {query_embedding.dtype}")
-            print(f"Index dimension: {index.d}")
-            
-            # Ensure correct format for FAISS
-            query_embedding = query_embedding.astype(np.float32)
-            
-            # Normalize embedding (important for cosine similarity)
-            norm = np.linalg.norm(query_embedding)
-            if norm > 0:
-                query_embedding = query_embedding / norm
-            
-            # Reshape for FAISS (expects 2D array)
-            if query_embedding.ndim == 1:
-                query_embedding = query_embedding.reshape(1, -1)
-            
-            # Verify dimensions match
-            if query_embedding.shape[1] != index.d:
-                print(f"Dimension mismatch: Query {query_embedding.shape[1]} vs Index {index.d}")
-                return fallback_search(features, limit)
-            
-            # Perform search
-            print(f"Searching for {limit} similar products...")
-            try:
-                distances, indices = index.search(query_embedding, limit)
-                
-                # Debug search results
-                print(f"Search completed. Distances: {distances[0][:5]}")
-                print(f"Indices: {indices[0][:5]}")
-                
-                # Load product IDs
-                product_ids = np.load(product_ids_path)
-                print(f"Loaded {len(product_ids)} product IDs")
-                
-                # Filter valid indices
-                valid_results = []
-                for i, idx in enumerate(indices[0]):
-                    if 0 <= idx < len(product_ids):
-                        product_id = int(product_ids[idx])
-                        similarity_score = float(distances[0][i])
-                        valid_results.append((product_id, similarity_score))
-                
-                print(f"Found {len(valid_results)} valid results")
-                
-                # Sort by similarity (higher is better for cosine similarity)
-                valid_results.sort(key=lambda x: x[1], reverse=True)
-                
-                # Return product IDs
-                result_ids = [pid for pid, _ in valid_results]
-                
-                if result_ids:
-                    print(f"Returning {len(result_ids)} product IDs: {result_ids[:5]}...")
-                    return result_ids
-                else:
-                    print("No valid results from FAISS search")
-                    
-            except Exception as e:
-                print(f"Error during FAISS search: {e}")
-                traceback.print_exc()
-                
-    except Exception as e:
-        print(f"Error in FAISS search pipeline: {e}")
-        traceback.print_exc()
-    
-    # Fallback to traditional search
-    print("Falling back to traditional similarity search")
-    return fallback_search(features, limit)
+# Paths for storing embeddings and indices
+EMBEDDINGS_DIR = 'data/embeddings'
+IMAGE_INDEX_PATH = os.path.join(EMBEDDINGS_DIR, 'faiss_index.bin')
+PRODUCT_IDS_PATH = os.path.join(EMBEDDINGS_DIR, 'product_ids.npy')
 
-def fallback_search(features, limit=10):
+# Global variables for loaded indices
+_image_index = None
+_image_product_ids = None
+
+def load_faiss_index(index_type='image'):
+    """Load FAISS index and product IDs"""
+    global _image_index, _image_product_ids
+    
+    try:
+        if _image_index is None:
+            print(f"Loading FAISS index from {IMAGE_INDEX_PATH}")
+            if os.path.exists(IMAGE_INDEX_PATH) and os.path.exists(PRODUCT_IDS_PATH):
+                _image_index = faiss.read_index(IMAGE_INDEX_PATH)
+                _image_product_ids = np.load(PRODUCT_IDS_PATH)
+                print(f"FAISS index loaded successfully with {_image_index.ntotal} vectors of dimension {_image_index.d}")
+            else:
+                print("FAISS index files not found. Please run load_data.py first.")
+                return None, None
+        return _image_index, _image_product_ids
+            
+    except Exception as e:
+        print(f"Error loading FAISS index ({index_type}): {e}")
+        traceback.print_exc()
+        return None, None
+
+def calculate_primary_color_similarity_score(target_features, product):
     """
-    Fallback similarity search using traditional methods
+    Advanced similarity calculation with PRIMARY COLOR INTELLIGENCE
     """
     try:
-        print("Performing fallback similarity search...")
-        products = Product.query.all()
+        score = 0.0
         
-        if not products:
-            print("No products found in database")
+        if not isinstance(target_features, dict):
+            return 0.0
+        
+        product_name = str(product.get('name', '')).lower()
+        product_desc = str(product.get('description', '')).lower()
+        product_category = str(product.get('category', '')).lower()
+        
+        # ULTRA-STRICT Gender + Age matching (50% weight)
+        target_gender = target_features.get('gender', 'unisex').lower()
+        target_age_group = target_features.get('age_group', 'adult').lower()
+        person_detected = target_features.get('person_detected', False)
+        
+        if person_detected and target_gender != 'unisex':
+            gender_score = 0
+            
+            if target_gender == 'men' and target_age_group == 'adult':
+                men_indicators = ['men', 'man', 'male', 'guys', 'gentleman']
+                if any(indicator in product_name or indicator in product_desc for indicator in men_indicators):
+                    gender_score = 1.0
+                
+                wrong_indicators = ['women', 'woman', 'female', 'ladies', 'girl', 'infant', 'baby', 'kid', 'child', 'teen', 'boy']
+                if any(indicator in product_name or indicator in product_desc for indicator in wrong_indicators):
+                    gender_score = -1.0
+                    
+            elif target_gender == 'women' and target_age_group == 'adult':
+                women_indicators = ['women', 'woman', 'female', 'ladies', 'girl']
+                if any(indicator in product_name or indicator in product_desc for indicator in women_indicators):
+                    gender_score = 1.0
+                
+                wrong_indicators = ['men', 'man', 'male', 'guys', 'infant', 'baby', 'kid', 'child', 'teen', 'boy']
+                if any(indicator in product_name or indicator in product_desc for indicator in wrong_indicators):
+                    gender_score = -1.0
+                    
+            elif target_gender == 'kids':
+                kids_indicators = ['kids', 'children', 'child', 'boy', 'girl', 'teen']
+                if target_age_group in ['child', 'teen']:
+                    if any(indicator in product_name or indicator in product_desc for indicator in kids_indicators):
+                        gender_score = 1.0
+                
+                adult_indicators = ['men', 'man', 'women', 'woman', 'adult']
+                if any(indicator in product_name or indicator in product_desc for indicator in adult_indicators):
+                    gender_score = -0.8
+            
+            score += gender_score * 0.5
+        else:
+            score += 0.25
+        
+        # PRIMARY COLOR MATCHING (35% weight) - MOST CRITICAL FOR VISUAL SIMILARITY
+        target_primary_colors = target_features.get('primary_colors', [])
+        target_accent_colors = target_features.get('accent_colors', [])
+        color_confidence = target_features.get('color_confidence', 0.7)
+        
+        if target_primary_colors and target_primary_colors != ['unknown']:
+            primary_color_score = 0
+            
+            # PRIORITY 1: Exact primary color matches (highest score)
+            for primary_color in target_primary_colors:
+                if primary_color.lower() in product_name or primary_color.lower() in product_desc:
+                    primary_color_score = 1.0
+                    break
+            
+            # PRIORITY 2: Similar primary color matches
+            if primary_color_score == 0:
+                for primary_color in target_primary_colors:
+                    similar_colors = get_similar_colors(primary_color)
+                    for similar in similar_colors:
+                        if similar in product_name or similar in product_desc:
+                            primary_color_score = 0.8  # Good match but not perfect
+                            break
+                    if primary_color_score > 0:
+                        break
+            
+            # PRIORITY 3: Check if accent colors appear as primary in product (lower score)
+            if primary_color_score == 0 and target_accent_colors:
+                for accent_color in target_accent_colors:
+                    if accent_color.lower() in product_name or accent_color.lower() in product_desc:
+                        primary_color_score = 0.3  # Much lower score for accent color matches
+                        break
+            
+            # Apply color confidence weighting
+            primary_color_score *= color_confidence
+            score += primary_color_score * 0.35
+            
+        else:
+            # Fallback to old color system for backward compatibility
+            target_colors = target_features.get('colors', [])
+            if target_colors and target_colors != ['unknown']:
+                color_score = 0
+                for color in target_colors:
+                    if color.lower() in product_name or color.lower() in product_desc:
+                        color_score = 1.0
+                        break
+                    # Check similar colors
+                    similar_colors = get_similar_colors(color)
+                    for similar in similar_colors:
+                        if similar in product_name or similar in product_desc:
+                            color_score = 0.8
+                            break
+                    if color_score > 0:
+                        break
+                score += color_score * 0.35
+        
+        # Subcategory matching (10% weight)
+        target_subcategory = target_features.get('subcategory', '').lower()
+        if target_subcategory and target_subcategory != 'unknown':
+            subcategory_score = 0
+            if target_subcategory in product_name or target_subcategory in product_category:
+                subcategory_score = 1.0
+            elif target_subcategory == 't-shirt' and any(term in product_name for term in ['shirt', 'top', 'tee']):
+                subcategory_score = 0.9
+            elif target_subcategory == 'shirt' and any(term in product_name for term in ['t-shirt', 'polo', 'top']):
+                subcategory_score = 0.9
+            
+            score += subcategory_score * 0.10
+        
+        # Category matching (5% weight)
+        target_main_category = target_features.get('main_category', '').lower()
+        if target_main_category and target_main_category != 'unknown':
+            if target_main_category in product_category or target_main_category in product_name:
+                score += 0.05
+        
+        return max(score, 0.0)
+        
+    except Exception as e:
+        print(f"Error calculating primary color similarity: {e}")
+        return 0.0
+
+def get_similar_colors(color):
+    """
+    Get similar/related colors for better matching
+    """
+    color_similarity_map = {
+        'yellow': ['mustard', 'golden', 'amber', 'cream', 'beige', 'sand'],
+        'red': ['crimson', 'maroon', 'burgundy', 'cherry', 'rose', 'coral'],
+        'blue': ['navy', 'azure', 'indigo', 'cobalt', 'teal', 'turquoise'],
+        'green': ['forest', 'lime', 'olive', 'emerald', 'mint', 'sage'],
+        'black': ['charcoal', 'ebony', 'jet', 'onyx'],
+        'white': ['cream', 'ivory', 'pearl', 'snow', 'off-white'],
+        'brown': ['tan', 'beige', 'chocolate', 'coffee', 'camel', 'khaki'],
+        'gray': ['grey', 'silver', 'charcoal', 'slate'],
+        'pink': ['rose', 'coral', 'salmon', 'blush', 'magenta'],
+        'purple': ['violet', 'lavender', 'plum', 'magenta', 'indigo'],
+        'orange': ['tangerine', 'coral', 'peach', 'amber', 'rust']
+    }
+    
+    return color_similarity_map.get(color.lower(), [])
+
+def filter_products_by_primary_color_criteria(target_features, limit=50):
+    """
+    Advanced product filtering with PRIMARY COLOR INTELLIGENCE
+    """
+    try:
+        if not isinstance(target_features, dict):
             return []
         
-        # Calculate similarity scores
-        similarity_scores = []
+        print(f"Primary color intelligent filtering with features: {target_features}")
+        
+        # Extract criteria
+        target_gender = target_features.get('gender', 'unisex').lower()
+        target_age_group = target_features.get('age_group', 'adult').lower()
+        target_primary_colors = target_features.get('primary_colors', [])
+        target_accent_colors = target_features.get('accent_colors', [])
+        target_main_category = target_features.get('main_category', '').lower()
+        target_subcategory = target_features.get('subcategory', '').lower()
+        person_detected = target_features.get('person_detected', False)
+        color_confidence = target_features.get('color_confidence', 0.7)
+        
+        # Build ultra-strict database query
+        query = Product.query
+        
+        # ULTRA-STRICT Gender + Age filtering (same as before)
+        if person_detected and target_gender != 'unisex':
+            if target_gender == 'men' and target_age_group == 'adult':
+                men_conditions = []
+                men_terms = ['men', 'man', 'male', 'guys', 'gentleman']
+                for term in men_terms:
+                    men_conditions.append(Product.name.ilike(f'%{term}%'))
+                    men_conditions.append(Product.description.ilike(f'%{term}%'))
+                
+                exclusion_terms = ['women', 'woman', 'female', 'ladies', 'girl', 'infant', 'baby', 'kid', 'child', 'teen', 'boy']
+                exclusions = []
+                for term in exclusion_terms:
+                    exclusions.append(not_(Product.name.ilike(f'%{term}%')))
+                    exclusions.append(not_(Product.description.ilike(f'%{term}%')))
+                
+                if men_conditions:
+                    query = query.filter(or_(*men_conditions))
+                if exclusions:
+                    query = query.filter(and_(*exclusions))
+                    
+            elif target_gender == 'women' and target_age_group == 'adult':
+                women_conditions = []
+                women_terms = ['women', 'woman', 'female', 'ladies', 'girl']
+                for term in women_terms:
+                    women_conditions.append(Product.name.ilike(f'%{term}%'))
+                    women_conditions.append(Product.description.ilike(f'%{term}%'))
+                
+                exclusion_terms = ['men', 'man', 'male', 'guys', 'infant', 'baby', 'kid', 'child', 'teen', 'boy']
+                exclusions = []
+                for term in exclusion_terms:
+                    exclusions.append(not_(Product.name.ilike(f'%{term}%')))
+                    exclusions.append(not_(Product.description.ilike(f'%{term}%')))
+                
+                if women_conditions:
+                    query = query.filter(or_(*women_conditions))
+                if exclusions:
+                    query = query.filter(and_(*exclusions))
+                    
+            elif target_gender == 'kids':
+                kids_conditions = []
+                kids_terms = ['kids', 'children', 'child', 'boy', 'girl', 'teen']
+                if target_age_group in ['child', 'teen']:
+                    for term in kids_terms:
+                        kids_conditions.append(Product.name.ilike(f'%{term}%'))
+                        kids_conditions.append(Product.description.ilike(f'%{term}%'))
+                
+                if kids_conditions:
+                    query = query.filter(or_(*kids_conditions))
+            
+            print(f"Applied ULTRA-STRICT gender filter for: {target_gender} {target_age_group}")
+        
+        # PRIMARY COLOR FILTERING (REVOLUTIONARY)
+        if target_primary_colors and target_primary_colors != ['unknown']:
+            primary_color_conditions = []
+            
+            # PRIORITY 1: Exact primary color matches
+            for primary_color in target_primary_colors:
+                primary_color_conditions.append(Product.name.ilike(f'%{primary_color}%'))
+                primary_color_conditions.append(Product.description.ilike(f'%{primary_color}%'))
+                
+                # Add similar colors with high confidence
+                if color_confidence > 0.6:
+                    similar_colors = get_similar_colors(primary_color)
+                    for similar in similar_colors:
+                        primary_color_conditions.append(Product.name.ilike(f'%{similar}%'))
+                        primary_color_conditions.append(Product.description.ilike(f'%{similar}%'))
+            
+            # ONLY include accent colors if no primary color matches and confidence is low
+            if color_confidence < 0.5 and target_accent_colors:
+                print("Low color confidence - including accent colors in search")
+                for accent_color in target_accent_colors[:2]:  # Limit to 2 accent colors
+                    primary_color_conditions.append(Product.name.ilike(f'%{accent_color}%'))
+            
+            if primary_color_conditions:
+                query = query.filter(or_(*primary_color_conditions))
+                print(f"Applied PRIMARY COLOR filter for: {target_primary_colors} (confidence: {color_confidence})")
+        
+        # Category filtering (same as before)
+        if target_main_category and target_main_category != 'unknown':
+            category_conditions = [Product.category.ilike(f'%{target_main_category}%')]
+            
+            if target_subcategory and target_subcategory != 'unknown':
+                if target_subcategory == 't-shirt':
+                    subcategory_terms = ['t-shirt', 'tshirt', 'tee', 'shirt', 'top']
+                elif target_subcategory == 'shirt':
+                    subcategory_terms = ['shirt', 't-shirt', 'polo', 'top', 'blouse']
+                elif target_subcategory == 'dress':
+                    subcategory_terms = ['dress', 'gown', 'frock']
+                elif target_subcategory == 'pants':
+                    subcategory_terms = ['pants', 'trousers', 'jeans']
+                else:
+                    subcategory_terms = [target_subcategory]
+                
+                for term in subcategory_terms:
+                    category_conditions.append(Product.name.ilike(f'%{term}%'))
+            
+            query = query.filter(or_(*category_conditions))
+            print(f"Applied category filter for: {target_main_category}/{target_subcategory}")
+        
+        # Execute query
+        products = query.limit(limit * 4).all()
+        print(f"Database query returned {len(products)} products")
+        
+        # Calculate primary color similarity scores
+        scored_products = []
         for product in products:
+            product_dict = product.to_dict()
+            similarity_score = calculate_primary_color_similarity_score(target_features, product_dict)
+            
+            # Higher threshold for better quality
+            if similarity_score > 0.6:  
+                scored_products.append((product_dict, similarity_score))
+        
+        # Sort by similarity score
+        scored_products.sort(key=lambda x: x[1], reverse=True)
+        
+        # Return top products
+        result = [product for product, score in scored_products[:limit]]
+        print(f"Primary color intelligent filtering: {len(products)} -> {len(result)} highly relevant products")
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in primary color filtering: {e}")
+        traceback.print_exc()
+        return []
+
+def search_similar_products(features_or_embeddings, limit=10, index_type='image'):
+    """Enhanced search with PRIMARY COLOR INTELLIGENCE"""
+    try:
+        print(f"Primary color intelligent search using {index_type} index")
+        
+        # Priority 1: Primary color intelligent feature-based search
+        if isinstance(features_or_embeddings, dict):
+            print("Using primary color intelligent filtering")
+            feature_filtered_products = filter_products_by_primary_color_criteria(features_or_embeddings, limit * 2)
+            
+            if len(feature_filtered_products) >= limit:
+                print(f"Primary color filtering found {len(feature_filtered_products)} products")
+                return [p['id'] for p in feature_filtered_products[:limit]]
+        
+        # Fallback to FAISS with primary color post-filtering
+        print("Using FAISS vector search with primary color post-filtering")
+        
+        index, product_ids = load_faiss_index(index_type)
+        if index is None or product_ids is None:
+            print(f"Could not load {index_type} FAISS index")
+            return fallback_similarity_search(features_or_embeddings, limit)
+        
+        # Generate query embedding
+        if isinstance(features_or_embeddings, (list, np.ndarray)) and len(features_or_embeddings) == 512:
+            query_embedding = np.array(features_or_embeddings, dtype=np.float32).reshape(1, -1)
+        else:
+            query_embedding = extract_features_as_embedding(features_or_embeddings)
+            query_embedding = query_embedding.reshape(1, -1)
+        
+        faiss.normalize_L2(query_embedding)
+        
+        # Search with larger limit for filtering
+        search_limit = limit * 8
+        print(f"Searching for {search_limit} similar products...")
+        distances, indices = index.search(query_embedding, search_limit)
+        
+        # Convert indices to product IDs
+        candidate_ids = []
+        for idx in indices[0]:
+            if 0 <= idx < len(product_ids):
+                product_id = int(product_ids[idx])
+                candidate_ids.append(product_id)
+        
+        # Apply primary color post-filtering
+        if isinstance(features_or_embeddings, dict):
+            print("Applying primary color post-filtering to FAISS results")
+            scored_products = []
+            
+            for product_id in candidate_ids:
+                try:
+                    product = Product.query.get(product_id)
+                    if product:
+                        product_dict = product.to_dict()
+                        similarity_score = calculate_primary_color_similarity_score(features_or_embeddings, product_dict)
+                        if similarity_score > 0.6:  # High threshold
+                            scored_products.append((product_id, similarity_score))
+                except Exception as e:
+                    print(f"Error processing product {product_id}: {e}")
+                    continue
+            
+            scored_products.sort(key=lambda x: x[1], reverse=True)
+            final_ids = [pid for pid, score in scored_products[:limit]]
+            
+            if final_ids:
+                print(f"Primary color post-filtering: {len(candidate_ids)} -> {len(final_ids)} products")
+                return final_ids
+        
+        print(f"Returning {min(limit, len(candidate_ids))} product IDs from FAISS")
+        return candidate_ids[:limit]
+        
+    except Exception as e:
+        print(f"Error in search_similar_products: {e}")
+        traceback.print_exc()
+        return fallback_similarity_search(features_or_embeddings, limit)
+
+def find_similar_products(features_or_embeddings, limit=10, index_type='image'):
+    """Alias for search_similar_products"""
+    return search_similar_products(features_or_embeddings, limit, index_type)
+
+def search_by_image_id(image_id, limit=10, index_type='image'):
+    """Search for similar products using an existing product's image with color intelligence"""
+    try:
+        print(f"Searching by image ID with color intelligence: {image_id}")
+        
+        product = Product.query.get(image_id)
+        if not product:
+            print(f"Product {image_id} not found")
+            return []
+        
+        # Enhanced feature extraction with primary color detection
+        product_features = {
+            'main_category': 'clothing',
+            'subcategory': 'item',
+            'primary_colors': ['unknown'],
+            'accent_colors': [],
+            'patterns': ['solid'],
+            'style': ['casual'],
+            'material': 'unknown',
+            'brand': 'unknown',
+            'gender': 'unisex',
+            'age_group': 'adult',
+            'person_detected': False,
+            'confidence': 0.5,
+            'color_confidence': 0.7
+        }
+        
+        product_name = product.name.lower() if product.name else ''
+        product_category = product.category.lower() if product.category else ''
+        product_desc = product.description.lower() if product.description else ''
+        
+        # Enhanced gender detection (same as before)
+        if any(term in product_name or term in product_desc for term in ['women', 'woman', 'female', 'ladies', 'girl']):
+            product_features['gender'] = 'women'
+            product_features['age_group'] = 'adult'
+        elif any(term in product_name or term in product_desc for term in ['men', 'man', 'male', 'guys']):
+            product_features['gender'] = 'men'
+            product_features['age_group'] = 'adult'
+        elif any(term in product_name or term in product_desc for term in ['kids', 'children', 'child', 'infant', 'baby', 'boy', 'girl', 'teen']):
+            product_features['gender'] = 'kids'
+            if any(term in product_name for term in ['infant', 'baby']):
+                product_features['age_group'] = 'infant'
+            elif any(term in product_name for term in ['child', 'kid']):
+                product_features['age_group'] = 'child'
+            elif 'teen' in product_name:
+                product_features['age_group'] = 'teen'
+        
+        # Enhanced category detection (same as before)
+        if any(term in product_name for term in ['t-shirt', 'tshirt', 'tee']):
+            product_features['subcategory'] = 't-shirt'
+        elif any(term in product_name for term in ['shirt', 'polo']):
+            product_features['subcategory'] = 'shirt'
+        elif 'dress' in product_name:
+            product_features['subcategory'] = 'dress'
+        elif any(term in product_name for term in ['pants', 'jeans', 'trouser']):
+            product_features['subcategory'] = 'pants'
+        elif any(term in product_name for term in ['shoe', 'sneaker', 'boot']):
+            product_features['subcategory'] = 'shoes'
+            product_features['main_category'] = 'shoes'
+        
+        # ENHANCED primary color extraction
+        primary_colors = []
+        accent_colors = []
+        
+        colors_to_check = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'pink', 'purple', 'brown', 'gray', 'grey', 'orange', 'navy', 'maroon']
+        
+        for color in colors_to_check:
+            if color in product_name:
+                # First color found is usually primary
+                if not primary_colors:
+                    primary_colors.append(color)
+                else:
+                    accent_colors.append(color)
+            elif color in product_desc:
+                accent_colors.append(color)
+        
+        if primary_colors:
+            product_features['primary_colors'] = primary_colors
+        if accent_colors:
+            product_features['accent_colors'] = accent_colors[:2]  # Limit to 2 accent colors
+        
+        # Set backward compatibility
+        product_features['colors'] = product_features['primary_colors']
+        
+        return search_similar_products(product_features, limit, index_type)
+        
+    except Exception as e:
+        print(f"Error in search_by_image_id: {e}")
+        traceback.print_exc()
+        return []
+
+def get_complementary_products(product, limit=10):
+    """Enhanced complementary products with primary color awareness"""
+    try:
+        if not product:
+            return []
+        
+        print(f"Getting complementary products with color intelligence for {product.name}")
+        
+        product_name = product.name.lower() if product.name else ''
+        product_desc = product.description.lower() if product.description else ''
+        
+        # Ultra-precise gender detection (same as before)
+        gender_context = 'unisex'
+        age_context = 'adult'
+        
+        if any(term in product_name or term in product_desc for term in ['women', 'woman', 'female', 'ladies', 'girl']):
+            gender_context = 'women'
+        elif any(term in product_name or term in product_desc for term in ['men', 'man', 'male', 'guys']):
+            gender_context = 'men'
+        elif any(term in product_name or term in product_desc for term in ['kids', 'children', 'child', 'infant', 'baby', 'teen']):
+            gender_context = 'kids'
+            if any(term in product_name for term in ['infant', 'baby']):
+                age_context = 'infant'
+            elif any(term in product_name for term in ['child', 'kid']):
+                age_context = 'child'
+            elif 'teen' in product_name:
+                age_context = 'teen'
+        
+        print(f"Detected context: {gender_context} {age_context}")
+        
+        # Determine source type (same as before)
+        if any(term in product_name for term in ['shirt', 't-shirt', 'top', 'blouse', 'dress', 'sweater', 'hoodie']):
+            source_type = 'clothing_top'
+        elif any(term in product_name for term in ['pants', 'jeans', 'trouser', 'skirt']):
+            source_type = 'clothing_bottom'
+        elif any(term in product_name for term in ['shoe', 'sneaker', 'boot', 'sandal']):
+            source_type = 'shoes'
+        elif any(term in product_name for term in ['bag', 'backpack', 'handbag', 'wallet']):
+            source_type = 'accessories'
+        else:
+            source_type = 'general'
+        
+        # Build ULTRA-STRICT gender-aware complementary queries (same as before)
+        complementary_queries = []
+        
+        if gender_context == 'women' and age_context == 'adult':
+            if source_type == 'clothing_top':
+                complementary_queries = [
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%pants%'), Product.name.ilike('%skirt%'), Product.name.ilike('%jeans%'))),
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sandal%'), Product.name.ilike('%heel%'))),
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%bag%'), Product.name.ilike('%handbag%'), Product.name.ilike('%purse%')))
+                ]
+            elif source_type == 'clothing_bottom':
+                complementary_queries = [
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shirt%'), Product.name.ilike('%top%'), Product.name.ilike('%blouse%'))),
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sandal%'), Product.name.ilike('%heel%'))),
+                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%bag%'), Product.name.ilike('%jewelry%')))
+                ]
+                
+        elif gender_context == 'men' and age_context == 'adult':
+            if source_type == 'clothing_top':
+                complementary_queries = [
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%pants%'), Product.name.ilike('%jeans%'), Product.name.ilike('%trouser%'))),
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sneaker%'), Product.name.ilike('%boot%'))),
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%belt%'), Product.name.ilike('%watch%'), Product.name.ilike('%wallet%')))
+                ]
+            elif source_type == 'clothing_bottom':
+                complementary_queries = [
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shirt%'), Product.name.ilike('%t-shirt%'), Product.name.ilike('%polo%'))),
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sneaker%'), Product.name.ilike('%boot%'))),
+                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%belt%'), Product.name.ilike('%watch%')))
+                ]
+                
+        elif gender_context == 'kids':
+            complementary_queries = [
+                and_(or_(Product.name.ilike('%kids%'), Product.name.ilike('%children%'), Product.name.ilike('%child%')), 
+                     Product.category.ilike('%clothing%')),
+                and_(or_(Product.name.ilike('%kids%'), Product.name.ilike('%children%'), Product.name.ilike('%child%')), 
+                     Product.category.ilike('%shoes%'))
+            ]
+        else:
+            # Unisex - but still avoid wrong categories
+            complementary_queries = [
+                and_(not_(Product.name.ilike('%infant%')), not_(Product.name.ilike('%baby%')), Product.category.ilike('%clothing%')),
+                and_(not_(Product.name.ilike('%infant%')), not_(Product.name.ilike('%baby%')), Product.category.ilike('%shoes%'))
+            ]
+        
+        # Execute queries with strict exclusions (same as before)
+        complementary_products = []
+        for query_condition in complementary_queries:
             try:
-                score = calculate_similarity(features, product.features)
-                similarity_scores.append((product.id, score))
+                exclusion_conditions = []
+                
+                if gender_context == 'men':
+                    exclusion_conditions = [
+                        not_(Product.name.ilike('%women%')),
+                        not_(Product.name.ilike('%female%')),
+                        not_(Product.name.ilike('%ladies%')),
+                        not_(Product.name.ilike('%girl%')),
+                        not_(Product.name.ilike('%infant%')),
+                        not_(Product.name.ilike('%baby%'))
+                    ]
+                elif gender_context == 'women':
+                    exclusion_conditions = [
+                        not_(Product.name.ilike('%men%')),
+                        not_(Product.name.ilike('%male%')),
+                        not_(Product.name.ilike('%guys%')),
+                        not_(Product.name.ilike('%infant%')),
+                        not_(Product.name.ilike('%baby%'))
+                    ]
+                
+                final_query = Product.query.filter(
+                    query_condition,
+                    Product.id != product.id
+                )
+                
+                if exclusion_conditions:
+                    final_query = final_query.filter(and_(*exclusion_conditions))
+                
+                products = final_query.limit(4).all()
+                complementary_products.extend(products)
+                
+                if len(complementary_products) >= limit:
+                    break
+                    
             except Exception as e:
-                print(f"Error calculating similarity for product {product.id}: {e}")
+                print(f"Error in complementary query: {e}")
                 continue
         
-        # Sort by similarity score (descending)
-        similarity_scores.sort(key=lambda x: x[1], reverse=True)
+        # Remove duplicates
+        seen_ids = set()
+        unique_products = []
+        for p in complementary_products:
+            if p.id not in seen_ids:
+                unique_products.append(p)
+                seen_ids.add(p.id)
+                if len(unique_products) >= limit:
+                    break
         
-        # Return top N product IDs
-        result = [product_id for product_id, score in similarity_scores[:limit] if score > 0]
-        print(f"Fallback search returned {len(result)} products")
-        return result
+        print(f"Found {len(unique_products)} color-intelligent complementary products")
+        return unique_products
+        
+    except Exception as e:
+        print(f"Error getting complementary products: {e}")
+        traceback.print_exc()
+        return []
+
+def fallback_similarity_search(features_or_embeddings, limit=10):
+    """Enhanced fallback search with primary color awareness"""
+    try:
+        print("Using enhanced fallback search with primary color awareness")
+        
+        if isinstance(features_or_embeddings, dict):
+            return [p['id'] for p in filter_products_by_primary_color_criteria(features_or_embeddings, limit)]
+        
+        # Basic fallback with proper filtering
+        all_products = Product.query.filter(
+            not_(Product.name.ilike('%infant%')),
+            not_(Product.name.ilike('%baby%'))
+        ).limit(100).all()
+        
+        if not all_products:
+            return []
+        
+        random.shuffle(all_products)
+        return [p.id for p in all_products[:limit]]
         
     except Exception as e:
         print(f"Error in fallback search: {e}")
         traceback.print_exc()
         return []
 
-def calculate_similarity(features1, features2):
-    """
-    Calculate similarity between two feature sets
-    Args:
-        features1: Query features (dict)
-        features2: Product features (dict or JSON string)
-    Returns:
-        Similarity score (0-1)
-    """
+def get_index_stats():
+    """Get statistics about the loaded indices"""
     try:
-        if not features2:
-            return 0
+        stats = {}
         
-        # Parse features2 if it's a string
-        if isinstance(features2, str):
-            try:
-                features2 = json.loads(features2)
-            except json.JSONDecodeError:
-                return 0
+        image_index, image_product_ids = load_faiss_index('image')
+        if image_index is not None:
+            stats['image_index'] = {
+                'total_vectors': image_index.ntotal,
+                'dimension': image_index.d,
+                'product_count': len(image_product_ids) if image_product_ids is not None else 0
+            }
         
-        if not isinstance(features2, dict):
-            return 0
+        stats['primary_color_intelligence'] = True
+        stats['color_hierarchy_support'] = True
         
-        # Initialize score
-        score = 0
-        total_weight = 0
-        
-        # Compare main category (highest weight)
-        if features1.get('main_category') and features2.get('main_category'):
-            if str(features1['main_category']).lower() == str(features2['main_category']).lower():
-                score += 0.4
-            total_weight += 0.4
-        
-        # Compare subcategory (high weight)
-        if features1.get('subcategory') and features2.get('subcategory'):
-            if str(features1['subcategory']).lower() == str(features2['subcategory']).lower():
-                score += 0.3
-            total_weight += 0.3
-        
-        # Compare colors (medium weight)
-        colors1 = set()
-        colors2 = set()
-        
-        if isinstance(features1.get('colors'), list):
-            colors1 = set(str(c).lower() for c in features1['colors'] if c)
-        elif features1.get('colors'):
-            colors1 = {str(features1['colors']).lower()}
-            
-        if isinstance(features2.get('colors'), list):
-            colors2 = set(str(c).lower() for c in features2['colors'] if c)
-        elif features2.get('colors'):
-            colors2 = {str(features2['colors']).lower()}
-        
-        if colors1 and colors2:
-            color_similarity = len(colors1.intersection(colors2)) / max(len(colors1), len(colors2))
-            score += 0.15 * color_similarity
-        total_weight += 0.15
-        
-        # Compare material (medium weight)
-        if features1.get('material') and features2.get('material'):
-            if (str(features1['material']).lower() == str(features2['material']).lower() and 
-                features1['material'] != 'unknown'):
-                score += 0.1
-        total_weight += 0.1
-        
-        # Compare brand (low weight)
-        if features1.get('brand') and features2.get('brand'):
-            if (str(features1['brand']).lower() == str(features2['brand']).lower() and 
-                features1['brand'] != 'unknown'):
-                score += 0.05
-        total_weight += 0.05
-        
-        # Normalize score
-        if total_weight > 0:
-            score = score / total_weight
-        
-        return min(score, 1.0)  # Cap at 1.0
+        return stats
         
     except Exception as e:
-        print(f"Error calculating similarity: {e}")
-        return 0
-
-def search_by_image_id(image_id, limit=10, index_type='image'):
-    """
-    Find similar products using an existing product's image embedding
-    Args:
-        image_id: Product ID to use as reference
-        limit: Maximum number of products to return
-        index_type: 'image' or 'text' index type
-    Returns:
-        List of similar product IDs
-    """
-    try:
-        # Determine paths
-        if index_type == 'image':
-            index_path = 'data/embeddings/faiss_index.bin'
-            embeddings_path = 'data/embeddings/image_embeddings.npy'
-            product_ids_path = 'data/embeddings/product_ids.npy'
-        else:
-            index_path = 'data/embeddings/text_faiss_index.bin'
-            embeddings_path = 'data/embeddings/text_embeddings.npy'
-            product_ids_path = 'data/embeddings/text_product_ids.npy'
-        
-        # Load components
-        index = load_faiss_index(index_path)
-        if not index:
-            print(f"Could not load {index_type} index")
-            return []
-        
-        if not os.path.exists(embeddings_path) or not os.path.exists(product_ids_path):
-            print(f"Missing {index_type} embeddings or product IDs")
-            return []
-        
-        # Load embeddings and product IDs
-        embeddings = np.load(embeddings_path)
-        product_ids = np.load(product_ids_path)
-        
-        # Find the embedding for the given image_id
-        try:
-            image_idx = np.where(product_ids == image_id)[0]
-            if len(image_idx) == 0:
-                print(f"Product ID {image_id} not found in embeddings")
-                return []
-            
-            image_idx = image_idx[0]
-            query_embedding = embeddings[image_idx].astype(np.float32)
-            
-            # Normalize
-            norm = np.linalg.norm(query_embedding)
-            if norm > 0:
-                query_embedding = query_embedding / norm
-            
-            # Reshape for search
-            query_embedding = query_embedding.reshape(1, -1)
-            
-            print(f"Found embedding for product {image_id}, searching for similar products...")
-            
-            # Search for similar products
-            distances, indices = index.search(query_embedding, limit + 1)  # +1 to account for self-match
-            
-            # Filter out the query product itself and invalid indices
-            similar_ids = []
-            for i, idx in enumerate(indices[0]):
-                if 0 <= idx < len(product_ids):
-                    pid = int(product_ids[idx])
-                    if pid != image_id:  # Exclude self
-                        similar_ids.append(pid)
-                        if len(similar_ids) >= limit:
-                            break
-            
-            print(f"Found {len(similar_ids)} similar products")
-            return similar_ids
-            
-        except Exception as e:
-            print(f"Error finding similar products by image ID: {e}")
-            return []
-            
-    except Exception as e:
-        print(f"Error in search_by_image_id: {e}")
-        traceback.print_exc()
-        return []
-
-def rebuild_indices():
-    """
-    Rebuild all FAISS indices with consistent CLIP embeddings
-    """
-    print("Rebuilding FAISS indices with CLIP embeddings...")
-    
-    try:
-        # Import the updated embedding service
-        from services.embedding_service import generate_image_embeddings_clip, generate_text_embeddings_clip, create_faiss_index
-        
-        # You'll need to pass your products DataFrame here
-        # This is a placeholder - you should call this function with your actual data
-        print("Note: You need to call this function with your products DataFrame")
-        print("Example usage:")
-        print("from services.vector_search import rebuild_indices")
-        print("rebuild_indices(products_df)")
-        
-    except Exception as e:
-        print(f"Error rebuilding indices: {e}")
-        traceback.print_exc()
-
-def rebuild_indices_with_data(products_df):
-    """
-    Rebuild all FAISS indices with consistent CLIP embeddings
-    Args:
-        products_df: DataFrame containing product data
-    """
-    print("Rebuilding FAISS indices with CLIP embeddings...")
-    
-    try:
-        from services.embedding_service import generate_image_embeddings_clip, generate_text_embeddings_clip, create_faiss_index
-        
-        # Generate image embeddings
-        print("Generating image embeddings...")
-        image_embeddings, image_product_ids = generate_image_embeddings_clip(products_df)
-        
-        if image_embeddings is not None:
-            # Create image FAISS index
-            print("Creating image FAISS index...")
-            image_index = create_faiss_index(image_embeddings, 'data/embeddings/faiss_index.bin')
-            if image_index:
-                print("Image index created successfully")
-        
-        # Generate text embeddings
-        print("Generating text embeddings...")
-        text_embeddings, text_product_ids = generate_text_embeddings_clip(products_df)
-        
-        if text_embeddings is not None:
-            # Create text FAISS index
-            print("Creating text FAISS index...")
-            text_index = create_faiss_index(text_embeddings, 'data/embeddings/text_faiss_index.bin')
-            if text_index:
-                print("Text index created successfully")
-        
-        print("Index rebuilding completed!")
-        
-    except Exception as e:
-        print(f"Error rebuilding indices: {e}")
-        traceback.print_exc()
+        print(f"Error getting index stats: {e}")
+        return {}

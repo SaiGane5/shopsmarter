@@ -7,21 +7,53 @@ import traceback
 
 recommendation_bp = Blueprint('recommendation', __name__)
 
-@recommendation_bp.route('/complementary', methods=['POST'])
-def complementary():
-    data = request.json
-    product_id = data.get('product_id')
-    product = Product.query.get(product_id)
-    if not product:
-        return jsonify({"error": "Product not found"}), 404
-    complementary = get_complementary_products(product)
-    return jsonify({"complementary_products": [p.to_dict() for p in complementary]})
+def validate_and_enhance_features(features):
+    """Validate and enhance features with proper defaults"""
+    if not isinstance(features, dict):
+        return None
+    
+    # Ensure all required fields exist
+    enhanced_features = {
+        'main_category': features.get('main_category', 'clothing'),
+        'subcategory': features.get('subcategory', 'item'),
+        'colors': features.get('colors', ['unknown']),
+        'patterns': features.get('patterns', ['solid']),
+        'style': features.get('style', ['casual']),
+        'material': features.get('material', 'unknown'),
+        'brand': features.get('brand', 'unknown'),
+        'gender': features.get('gender', 'unisex'),
+        'person_detected': features.get('person_detected', False),
+        'confidence': features.get('confidence', 0.7)
+    }
+    
+    # Validate gender
+    valid_genders = ['women', 'men', 'kids', 'unisex']
+    if enhanced_features['gender'] not in valid_genders:
+        enhanced_features['gender'] = 'unisex'
+    
+    return enhanced_features
+
+def log_recommendation_context(features, products_found):
+    """Log recommendation context for debugging"""
+    try:
+        gender = features.get('gender', 'unisex')
+        person_detected = features.get('person_detected', False)
+        colors = features.get('colors', [])
+        subcategory = features.get('subcategory', 'unknown')
+        
+        print(f"=== RECOMMENDATION CONTEXT ===")
+        print(f"Gender: {gender} (Person detected: {person_detected})")
+        print(f"Colors: {colors}")
+        print(f"Subcategory: {subcategory}")
+        print(f"Products found: {products_found}")
+        print(f"================================")
+        
+    except Exception as e:
+        print(f"Error logging context: {e}")
 
 @recommendation_bp.route('/similar', methods=['POST'])
 def get_similar_products():
-    """
-    Get similar products based on features or image ID
-    """
+    """Get similar products with enhanced gender-aware filtering"""
     try:
         data = request.json
         
@@ -32,13 +64,19 @@ def get_similar_products():
         
         # Handle different types of input
         if 'features' in data:
-            # Search by extracted features
-            features = data['features']
+            # Validate and enhance features
+            features = validate_and_enhance_features(data['features'])
+            if not features:
+                return jsonify({'error': 'Invalid features provided'}), 400
+            
             limit = data.get('limit', 10)
-            index_type = data.get('index_type', 'image')  # 'image' or 'text'
+            index_type = data.get('index_type', 'image')
             
             print(f"Searching by features using {index_type} index")
-            similar_product_ids = find_similar_products(features, limit=limit, index_type=index_type)
+            print(f"Enhanced features: {features}")
+            
+            # Use enhanced search with larger candidate pool
+            similar_product_ids = find_similar_products(features, limit=limit*3, index_type=index_type)
             
         elif 'image_id' in data:
             # Search by existing product's image
@@ -47,7 +85,7 @@ def get_similar_products():
             index_type = data.get('index_type', 'image')
             
             print(f"Searching by image ID {image_id} using {index_type} index")
-            similar_product_ids = search_by_image_id(image_id, limit=limit, index_type=index_type)
+            similar_product_ids = search_by_image_id(image_id, limit=limit*2, index_type=index_type)
             
         elif 'image_path' in data:
             # Search by image file path
@@ -55,29 +93,10 @@ def get_similar_products():
             limit = data.get('limit', 10)
             
             print(f"Searching by image path: {image_path}")
-            similar_product_ids = find_similar_products(image_path, limit=limit, index_type='image')
+            similar_product_ids = find_similar_products(image_path, limit=limit*2, index_type='image')
             
         else:
             return jsonify({'error': 'No features, image_id, or image_path provided'}), 400
-        
-        # Record user interaction if user_id is provided
-        user_id = data.get('user_id')
-        if user_id and similar_product_ids:
-            try:
-                user = User.query.get(user_id)
-                if user:
-                    for product_id in similar_product_ids[:5]:  # Record top 5 interactions
-                        history = UserHistory(
-                            user_id=user_id,
-                            product_id=product_id,
-                            interaction_type='recommendation_view'
-                        )
-                        db.session.add(history)
-                    db.session.commit()
-                    print(f"Recorded interactions for user {user_id}")
-            except Exception as e:
-                print(f"Error recording user interactions: {e}")
-                # Don't fail the request if history recording fails
         
         # Get full product details
         product_details = []
@@ -92,12 +111,41 @@ def get_similar_products():
                     print(f"Error getting product {product_id}: {e}")
                     continue
         
-        print(f"Returning {len(product_details)} product recommendations")
+        # Log context for debugging
+        if 'features' in data:
+            log_recommendation_context(data['features'], len(product_details))
+        
+        # Limit final results
+        limit = data.get('limit', 10)
+        product_details = product_details[:limit]
+        
+        # Record user interaction if user_id is provided
+        user_id = data.get('user_id')
+        if user_id and product_details:
+            try:
+                user = User.query.get(user_id)
+                if user:
+                    for product_dict in product_details[:5]:
+                        history = UserHistory(
+                            user_id=user_id,
+                            product_id=product_dict['id'],
+                            interaction_type='recommendation_view'
+                        )
+                        db.session.add(history)
+                    db.session.commit()
+                    print(f"Recorded interactions for user {user_id}")
+            except Exception as e:
+                print(f"Error recording user interactions: {e}")
+        
+        print(f"Returning {len(product_details)} gender-aware product recommendations")
         
         return jsonify({
-            'products': product_details,
-            'total_found': len(similar_product_ids),
-            'search_method': 'features' if 'features' in data else 'image_id' if 'image_id' in data else 'image_path'
+            'recommendations': product_details,
+            'total': len(product_details),
+            'search_method': 'features' if 'features' in data else 'image_id' if 'image_id' in data else 'image_path',
+            'features_used': data.get('features') if 'features' in data else None,
+            'gender_context': data['features'].get('gender') if 'features' in data else None,
+            'person_detected': data['features'].get('person_detected') if 'features' in data else None
         })
         
     except Exception as e:
@@ -105,11 +153,69 @@ def get_similar_products():
         traceback.print_exc()
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
+@recommendation_bp.route('/complementary', methods=['POST'])
+def complementary():
+    """Get complementary products with gender awareness"""
+    try:
+        data = request.json
+        
+        if 'product_id' in data:
+            product_id = data.get('product_id')
+            product = Product.query.get(product_id)
+            if not product:
+                return jsonify({"error": "Product not found"}), 404
+            
+            complementary = get_complementary_products(product)
+            return jsonify({
+                "complementary_products": [p.to_dict() for p in complementary],
+                "total": len(complementary),
+                "source_product": product.to_dict()
+            })
+            
+        elif 'features' in data:
+            # Get complementary products based on enhanced features
+            features = validate_and_enhance_features(data['features'])
+            if not features:
+                return jsonify({'error': 'Invalid features provided'}), 400
+            
+            limit = data.get('limit', 10)
+            
+            # Create a mock product for gender-aware complementary search
+            mock_product_dict = {
+                'name': f"{features.get('gender', 'unisex')} {features.get('subcategory', 'item')}",
+                'category': features.get('main_category', 'clothing'),
+                'description': f"{features.get('gender', 'unisex')} {' '.join(features.get('colors', []))} {features.get('subcategory', 'item')}"
+            }
+            
+            # Convert to object-like structure for compatibility
+            class MockProduct:
+                def __init__(self, data):
+                    for key, value in data.items():
+                        setattr(self, key, value)
+                    self.id = 0  # Dummy ID
+            
+            mock_product = MockProduct(mock_product_dict)
+            
+            # Get gender-aware complementary products
+            complementary = get_complementary_products(mock_product, limit)
+            
+            return jsonify({
+                "complementary_products": [p.to_dict() for p in complementary],
+                "total": len(complementary),
+                "source_features": features
+            })
+        
+        else:
+            return jsonify({"error": "Either product_id or features required"}), 400
+            
+    except Exception as e:
+        print(f"Error in complementary: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+
 @recommendation_bp.route('/refine', methods=['POST'])
 def refine_results():
-    """
-    Refine product recommendations based on user prompt
-    """
+    """Refine product recommendations based on user prompt"""
     try:
         data = request.json
         
@@ -124,15 +230,16 @@ def refine_results():
         
         print(f"Refining {len(products)} products with prompt: {prompt}")
         
-        # Use NLP to refine recommendations based on user prompt
+        # Use enhanced NLP to refine recommendations
         refined_products = refine_recommendations(products, prompt)
         
         print(f"Refinement returned {len(refined_products)} products")
         
         return jsonify({
-            'products': refined_products,
+            'recommendations': refined_products,
+            'total': len(refined_products),
             'original_count': len(products),
-            'refined_count': len(refined_products)
+            'prompt': prompt
         })
         
     except Exception as e:
@@ -140,131 +247,24 @@ def refine_results():
         traceback.print_exc()
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
-@recommendation_bp.route('/hybrid', methods=['POST'])
-def hybrid_search():
-    """
-    Perform hybrid search using both image and text embeddings
-    """
-    try:
-        data = request.json
-        
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        limit = data.get('limit', 10)
-        
-        # Get results from both image and text search
-        image_results = []
-        text_results = []
-        
-        if 'features' in data:
-            features = data['features']
-            
-            # Search using image embeddings
-            try:
-                image_results = find_similar_products(features, limit=limit*2, index_type='image')
-                print(f"Image search returned {len(image_results)} results")
-            except Exception as e:
-                print(f"Image search failed: {e}")
-            
-            # Search using text embeddings
-            try:
-                text_results = find_similar_products(features, limit=limit*2, index_type='text')
-                print(f"Text search returned {len(text_results)} results")
-            except Exception as e:
-                print(f"Text search failed: {e}")
-        
-        # Combine and rank results
-        combined_results = combine_search_results(image_results, text_results, limit)
-        
-        # Get product details
-        product_details = []
-        for product_id in combined_results:
-            try:
-                product = Product.query.get(product_id)
-                if product:
-                    product_details.append(product.to_dict())
-            except Exception as e:
-                print(f"Error getting product {product_id}: {e}")
-                continue
-        
-        print(f"Hybrid search returning {len(product_details)} products")
-        
-        return jsonify({
-            'products': product_details,
-            'image_results_count': len(image_results),
-            'text_results_count': len(text_results),
-            'combined_count': len(combined_results)
-        })
-        
-    except Exception as e:
-        print(f"Error in hybrid_search: {e}")
-        traceback.print_exc()
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
-
-def combine_search_results(image_results, text_results, limit):
-    """
-    Combine and rank results from image and text search
-    """
-    try:
-        # Create scoring system
-        product_scores = {}
-        
-        # Score image results (higher weight for earlier results)
-        for i, product_id in enumerate(image_results):
-            score = (len(image_results) - i) / len(image_results) * 0.6  # Image weight: 60%
-            product_scores[product_id] = product_scores.get(product_id, 0) + score
-        
-        # Score text results
-        for i, product_id in enumerate(text_results):
-            score = (len(text_results) - i) / len(text_results) * 0.4  # Text weight: 40%
-            product_scores[product_id] = product_scores.get(product_id, 0) + score
-        
-        # Sort by combined score
-        ranked_products = sorted(product_scores.items(), key=lambda x: x[1], reverse=True)
-        
-        # Return top results
-        return [product_id for product_id, _ in ranked_products[:limit]]
-        
-    except Exception as e:
-        print(f"Error combining search results: {e}")
-        # Fallback: return image results first, then text results
-        seen = set()
-        combined = []
-        
-        for product_id in image_results + text_results:
-            if product_id not in seen:
-                combined.append(product_id)
-                seen.add(product_id)
-                if len(combined) >= limit:
-                    break
-        
-        return combined
-
 @recommendation_bp.route('/status', methods=['GET'])
 def get_status():
-    """
-    Get the status of the recommendation system
-    """
+    """Get the status of the recommendation system"""
     try:
+        from services.vector_search import get_index_stats
         import os
         
         status = {
             'faiss_index_exists': os.path.exists('data/embeddings/faiss_index.bin'),
-            'text_faiss_index_exists': os.path.exists('data/embeddings/text_faiss_index.bin'),
             'image_embeddings_exist': os.path.exists('data/embeddings/image_embeddings.npy'),
-            'text_embeddings_exist': os.path.exists('data/embeddings/text_embeddings.npy'),
             'product_ids_exist': os.path.exists('data/embeddings/product_ids.npy'),
-            'text_product_ids_exist': os.path.exists('data/embeddings/text_product_ids.npy')
+            'gender_aware_filtering': True,
+            'advanced_similarity': True
         }
         
-        # Get file sizes if they exist
-        if status['faiss_index_exists']:
-            status['faiss_index_size'] = os.path.getsize('data/embeddings/faiss_index.bin')
-        if status['image_embeddings_exist']:
-            embeddings = np.load('data/embeddings/image_embeddings.npy')
-            status['image_embeddings_shape'] = embeddings.shape
-            status['image_embeddings_dtype'] = str(embeddings.dtype)
+        # Get index statistics
+        index_stats = get_index_stats()
+        status.update(index_stats)
         
         return jsonify(status)
         
