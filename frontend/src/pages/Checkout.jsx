@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import ThemeContext from '../context/ThemeContext';
 
 const Checkout = () => {
@@ -20,8 +21,24 @@ const Checkout = () => {
   const [predictions, setPredictions] = useState({});
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [expandedSuggestions, setExpandedSuggestions] = useState({});
 
   const userId = localStorage.getItem('user_id') || 1;
+
+  // Professional color palette
+  const colors = {
+    primary: darkMode ? '#3B82F6' : '#2563EB',
+    primaryHover: darkMode ? '#2563EB' : '#1D4ED8',
+    secondary: darkMode ? '#6B7280' : '#9CA3AF',
+    success: darkMode ? '#10B981' : '#059669',
+    warning: darkMode ? '#F59E0B' : '#D97706',
+    danger: darkMode ? '#EF4444' : '#DC2626',
+    background: darkMode ? '#111827' : '#F8FAFC',
+    cardBg: darkMode ? '#1F2937' : '#FFFFFF',
+    border: darkMode ? '#374151' : '#E5E7EB',
+    text: darkMode ? '#F9FAFB' : '#111827',
+    textSecondary: darkMode ? '#D1D5DB' : '#6B7280'
+  };
 
   useEffect(() => {
     if (location.state && location.state.cart) {
@@ -48,7 +65,6 @@ const Checkout = () => {
     try {
       setAiLoading(true);
       
-      // Comprehensive AI analysis
       const response = await fetch('/api/checkout/analyze-cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,8 +81,6 @@ const Checkout = () => {
         setSmartPricing(data.analysis.dynamic_pricing);
         setSmartBehaviors(data.analysis.smart_behaviors);
         setPredictions(data.analysis.purchase_predictions);
-        
-        console.log('AI Analysis completed:', data.analysis);
       }
     } catch (error) {
       console.error('AI Analysis failed:', error);
@@ -175,404 +189,652 @@ const Checkout = () => {
     }
   };
 
-  // Smart Behaviors Components
+  // Professional Alert Component
   const SmartAlert = ({ alert, type }) => (
-    <div className={`p-3 rounded-lg mb-2 ${
-      type === 'stock' ? 'bg-red-100 border border-red-300 text-red-800' :
-      type === 'price' ? 'bg-green-100 border border-green-300 text-green-800' :
-      'bg-blue-100 border border-blue-300 text-blue-800'
-    }`}>
+    <motion.div 
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: type === 'stock' ? '#FEF2F2' : type === 'price' ? '#F0FDF4' : '#EFF6FF',
+        borderLeft: `4px solid ${type === 'stock' ? colors.danger : type === 'price' ? colors.success : colors.primary}`,
+        color: type === 'stock' ? colors.danger : type === 'price' ? colors.success : colors.primary
+      }}
+      className="p-4 rounded-lg mb-3"
+    >
       <div className="flex items-center">
-        {type === 'stock' && (
-          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-        )}
-        {type === 'price' && (
-          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-        )}
-        <span className="text-sm font-medium">{alert.message}</span>
+        <div className="flex-shrink-0 mr-3">
+          <div style={{
+            background: type === 'stock' ? '#FEE2E2' : type === 'price' ? '#DCFCE7' : '#DBEAFE',
+            color: type === 'stock' ? colors.danger : type === 'price' ? colors.success : colors.primary
+          }} className="w-8 h-8 rounded-full flex items-center justify-center">
+            {type === 'stock' && (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            )}
+            {type === 'price' && (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+        </div>
+        <div>
+          <p className="font-medium text-sm">{alert.message}</p>
+          {alert.urgency && (
+            <p className="text-xs opacity-75 mt-1">Urgency: {alert.urgency}</p>
+          )}
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 
-  const SuggestionCard = ({ item, reason, onAdd }) => (
-    <div className={`p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
-      <div className="flex items-center space-x-3">
-        <img 
-          src={item.image_url || `https://via.placeholder.com/60x60?text=${encodeURIComponent(item.name)}`}
-          alt={item.name}
-          className="w-12 h-12 object-cover rounded"
-          onError={(e) => {
-            e.target.src = `https://via.placeholder.com/60x60?text=${encodeURIComponent(item.name)}`;
-          }}
-        />
-        <div className="flex-1">
-          <h4 className="font-medium text-sm">{item.name}</h4>
-          <p className="text-xs text-gray-500">{reason}</p>
-          <p className="font-bold text-indigo-600">${item.price.toFixed(2)}</p>
+  // Professional Suggestion Card Component
+  const SuggestionCard = ({ item, reason, onAdd, confidence }) => (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      whileHover={{ scale: 1.02 }}
+      style={{
+        background: colors.cardBg,
+        borderColor: colors.border
+      }}
+      className="p-4 rounded-lg border transition-all duration-300 hover:shadow-md"
+    >
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <img 
+            src={item.image_url || `https://via.placeholder.com/64x64?text=${encodeURIComponent(item.name)}`}
+            alt={item.name}
+            className="w-16 h-16 object-cover rounded-lg"
+            onError={(e) => {
+              e.target.src = `https://via.placeholder.com/64x64?text=${encodeURIComponent(item.name)}`;
+            }}
+          />
+          {confidence && (
+            <div style={{ background: colors.primary }} className="absolute -top-2 -right-2 text-white text-xs px-2 py-1 rounded-full font-medium">
+              {Math.round(confidence * 100)}%
+            </div>
+          )}
         </div>
-        <button
+        
+        <div className="flex-1 min-w-0">
+          <h4 style={{ color: colors.text }} className="font-semibold text-sm truncate">
+            {item.name}
+          </h4>
+          <p style={{ color: colors.textSecondary }} className="text-xs mt-1">
+            {reason}
+          </p>
+          <div className="flex items-center mt-2">
+            <span style={{ color: colors.primary }} className="text-lg font-bold">
+              ${item.price.toFixed(2)}
+            </span>
+          </div>
+        </div>
+        
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => onAdd(item)}
-          className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700 transition-colors"
+          style={{
+            background: colors.primary,
+            borderColor: colors.primary
+          }}
+          className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-90"
         >
           Add
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 
+  // Professional Cart Item Component
   const CartItem = ({ item }) => (
-    <div className={`flex items-center space-x-4 p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} mb-4`}>
-      <img 
-        className="w-20 h-20 object-cover rounded-lg" 
-        src={item.image_url || `https://via.placeholder.com/80x80?text=${encodeURIComponent(item.name)}`}
-        alt={item.name}
-        onError={(e) => {
-          e.target.src = `https://via.placeholder.com/80x80?text=${encodeURIComponent(item.name)}`;
-        }}
-      />
-      <div className="flex-1">
-        <h3 className="font-semibold text-lg">{item.name}</h3>
-        <p className="text-sm text-gray-500">{item.category}</p>
-        <p className="font-bold text-indigo-600">${item.price.toFixed(2)} each</p>
-        
-        {/* Smart behaviors for this item */}
-        {smartBehaviors.size_recommendations?.find(rec => rec.product_id === item.id) && (
-          <div className="mt-2">
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-              Recommended size: {smartBehaviors.size_recommendations.find(rec => rec.product_id === item.id).recommended_size}
-            </span>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      style={{
+        background: colors.cardBg,
+        borderColor: colors.border
+      }}
+      className="p-6 rounded-lg mb-4 border transition-all duration-300 hover:shadow-sm"
+    >
+      <div className="flex items-center space-x-6">
+        <div className="relative">
+          <img 
+            className="w-20 h-20 object-cover rounded-lg" 
+            src={item.image_url || `https://via.placeholder.com/80x80?text=${encodeURIComponent(item.name)}`}
+            alt={item.name}
+            onError={(e) => {
+              e.target.src = `https://via.placeholder.com/80x80?text=${encodeURIComponent(item.name)}`;
+            }}
+          />
+          <div style={{ background: colors.primary }} className="absolute -top-2 -right-2 text-white text-xs px-2 py-1 rounded-full font-medium">
+            {item.quantity}
           </div>
-        )}
-        
-        {smartBehaviors.stock_alerts?.find(alert => alert.product_id === item.id) && (
-          <div className="mt-2">
-            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-              {smartBehaviors.stock_alerts.find(alert => alert.product_id === item.id).message}
-            </span>
-          </div>
-        )}
-        
-        {smartBehaviors.price_alerts?.find(alert => alert.product_id === item.id) && (
-          <div className="mt-2">
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-              {smartBehaviors.price_alerts.find(alert => alert.product_id === item.id).message}
-            </span>
-          </div>
-        )}
-      </div>
-      
-      {/* Quantity Controls */}
-      <div className="flex items-center space-x-3">
-        <button
-          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-            darkMode 
-              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
-              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path>
-          </svg>
-        </button>
-        
-        <span className="font-semibold text-lg min-w-[2rem] text-center">{item.quantity}</span>
-        
-        <button
-          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-            darkMode 
-              ? 'bg-gray-600 hover:bg-gray-500 text-white' 
-              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-          }`}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
-        </button>
-      </div>
-      
-      {/* Subtotal and Delete */}
-      <div className="flex items-center space-x-4">
-        <div className="text-right">
-          <p className="font-bold text-lg">${(item.price * item.quantity).toFixed(2)}</p>
         </div>
         
-        <button
-          onClick={() => removeFromCart(item.id)}
-          className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"
-          aria-label="Remove item"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1v3M4 7h16"></path>
-          </svg>
-        </button>
+        <div className="flex-1 space-y-2">
+          <h3 style={{ color: colors.text }} className="text-lg font-semibold">
+            {item.name}
+          </h3>
+          <p style={{ color: colors.textSecondary }} className="text-sm">
+            {item.category}
+          </p>
+          <div className="flex items-center space-x-4">
+            <span style={{ color: colors.primary }} className="text-xl font-bold">
+              ${item.price.toFixed(2)}
+            </span>
+            <span style={{ color: colors.textSecondary }} className="text-sm">
+              each
+            </span>
+          </div>
+          
+          {/* Smart behaviors for this item */}
+          <div className="flex flex-wrap gap-2">
+            {smartBehaviors.size_recommendations?.find(rec => rec.product_id === item.id) && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Size: {smartBehaviors.size_recommendations.find(rec => rec.product_id === item.id).recommended_size}
+              </span>
+            )}
+            
+            {smartBehaviors.stock_alerts?.find(alert => alert.product_id === item.id) && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                <svg className="w-3 h-3 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92z" clipRule="evenodd" />
+                </svg>
+                {smartBehaviors.stock_alerts.find(alert => alert.product_id === item.id).message}
+              </span>
+            )}
+            
+            {smartBehaviors.price_alerts?.find(alert => alert.product_id === item.id) && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {smartBehaviors.price_alerts.find(alert => alert.product_id === item.id).message}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Quantity Controls */}
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex items-center space-x-2">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+              style={{
+                background: colors.cardBg,
+                borderColor: colors.border,
+                color: colors.text
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-200 hover:shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path>
+              </svg>
+            </motion.button>
+            
+            <div style={{
+              background: colors.background,
+              color: colors.text
+            }} className="min-w-[2.5rem] text-center py-1 px-2 rounded font-semibold">
+              {item.quantity}
+            </div>
+            
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+              style={{
+                background: colors.cardBg,
+                borderColor: colors.border,
+                color: colors.text
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-200 hover:shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+            </motion.button>
+          </div>
+          
+          {/* Subtotal and Delete */}
+          <div className="text-center space-y-2">
+            
+            <p style={{ color: colors.primary }} className="text-lg font-bold">
+              ${(item.price * item.quantity).toFixed(2)}
+            </p>
+            
+
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   if (cart.length === 0) {
     return (
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
+      <div style={{ background: colors.background, color: colors.text }} className="min-h-screen">
         <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8-4-8 4m16 0v18l-8 4-8-4V7m16 18l-8 4-8-4" />
-            </svg>
-            <h2 className="mt-2 text-lg font-medium">Your cart is empty</h2>
-            <p className="mt-1 text-sm text-gray-500">Start shopping to add items to your cart.</p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate('/')}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                Continue Shopping
-              </button>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <div style={{ background: colors.primary + '20' }} className="mx-auto h-24 w-24 rounded-full flex items-center justify-center mb-6">
+              <svg style={{ color: colors.primary }} className="h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8-4-8 4m16 0v18l-8 4-8-4V7m16 18l-8 4-8-4" />
+              </svg>
             </div>
-          </div>
+            <h2 className="text-3xl font-bold mb-4">Your cart is empty</h2>
+            <p style={{ color: colors.textSecondary }} className="text-lg mb-8">Start shopping to add items to your cart and experience our AI-powered recommendations.</p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/')}
+              style={{ background: colors.primary }}
+              className="inline-flex items-center px-8 py-4 text-lg font-medium rounded-lg text-white transition-all duration-200 hover:opacity-90"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              Start Shopping
+            </motion.button>
+          </motion.div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-extrabold">Smart Shopping Cart</h1>
-          <button
-            onClick={() => navigate('/')}
-            className={`text-sm font-medium ${darkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}
-          >
-            ← Continue Shopping
-          </button>
-        </div>
-        
+    <div style={{ background: colors.background, color: colors.text }} className="min-h-screen transition-colors duration-300">
+      
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* AI Loading Indicator */}
-        {aiLoading && (
-          <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-blue-50'} border border-blue-200`}>
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg"
+          >
             <div className="flex items-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-blue-800">AI is analyzing your cart for the best recommendations...</span>
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              {error}
             </div>
-          </div>
+          </motion.div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2 space-y-6">
             {/* Smart Behaviors Alerts */}
-            {smartBehaviors.urgency_indicators?.length > 0 && (
-              <div className={`mb-6 p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
-                <h3 className="font-semibold mb-3 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  Smart Alerts
-                </h3>
-                {smartBehaviors.urgency_indicators.map((alert, index) => (
-                  <SmartAlert key={index} alert={alert} type={alert.type} />
-                ))}
-              </div>
-            )}
+            <AnimatePresence>
+              {smartBehaviors.urgency_indicators?.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  style={{
+                    background: colors.cardBg,
+                    borderColor: colors.border
+                  }}
+                  className="p-6 rounded-lg border"
+                >
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <div style={{ background: colors.warning + '20', color: colors.warning }} className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    Smart Alerts
+                  </h3>
+                  {smartBehaviors.urgency_indicators.map((alert, index) => (
+                    <SmartAlert key={index} alert={alert} type={alert.type} />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Cart Items */}
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6 mb-6`}>
-              <h2 className="text-xl font-semibold mb-6">Cart Items ({cart.length})</h2>
-              <div className="space-y-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                background: colors.cardBg,
+                borderColor: colors.border
+              }}
+              className="p-6 rounded-lg border"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold flex items-center">
+                  <div style={{ background: colors.primary + '20', color: colors.primary }} className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                  </div>
+                  Your Items ({cart.length})
+                </h2>
+                <span style={{
+                  background: colors.primary + '20',
+                  color: colors.primary
+                }} className="px-3 py-1 rounded-full text-sm font-medium">
+                  {cart.reduce((total, item) => total + item.quantity, 0)} total items
+                </span>
+              </div>
+              
+              <AnimatePresence>
                 {cart.map((item) => (
                   <CartItem key={item.id} item={item} />
                 ))}
-              </div>
-            </div>
+              </AnimatePresence>
+            </motion.div>
 
             {/* AI Suggestions */}
-            {suggestions && Object.keys(suggestions).length > 0 && (
-              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    AI Recommendations
-                  </h3>
-                  <button
-                    onClick={() => setShowSuggestions(!showSuggestions)}
-                    className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                  >
-                    {showSuggestions ? 'Hide' : 'Show'} Suggestions
-                  </button>
-                </div>
-
-                {showSuggestions && (
-                  <div className="space-y-4">
-                    {suggestions.frequently_bought_together?.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">Frequently Bought Together</h4>
-                        <div className="space-y-2">
-                          {suggestions.frequently_bought_together.slice(0, 3).map((item, index) => (
-                            <SuggestionCard 
-                              key={index} 
-                              item={item} 
-                              reason={item.reason} 
-                              onAdd={addSuggestedItem} 
-                            />
-                          ))}
-                        </div>
+            <AnimatePresence>
+              {suggestions && Object.keys(suggestions).length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  style={{
+                    background: colors.cardBg,
+                    borderColor: colors.border
+                  }}
+                  className="p-6 rounded-lg border"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <div style={{ background: colors.primary + '20', color: colors.primary }} className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
                       </div>
-                    )}
-
-                    {suggestions.complete_the_look?.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">Complete the Look</h4>
-                        <div className="space-y-2">
-                          {suggestions.complete_the_look.slice(0, 3).map((item, index) => (
-                            <SuggestionCard 
-                              key={index} 
-                              item={item} 
-                              reason={item.reason} 
-                              onAdd={addSuggestedItem} 
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {suggestions.you_may_also_like?.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">You May Also Like</h4>
-                        <div className="space-y-2">
-                          {suggestions.you_may_also_like.slice(0, 3).map((item, index) => (
-                            <SuggestionCard 
-                              key={index} 
-                              item={item} 
-                              reason={item.reason} 
-                              onAdd={addSuggestedItem} 
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      AI Recommendations
+                    </h3>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowSuggestions(!showSuggestions)}
+                      style={{ background: colors.primary }}
+                      className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:opacity-90"
+                    >
+                      {showSuggestions ? 'Hide' : 'Show'} Suggestions
+                    </motion.button>
                   </div>
-                )}
-              </div>
-            )}
+
+                  <AnimatePresence>
+                    {showSuggestions && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-6"
+                      >
+                        {suggestions.frequently_bought_together?.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-base mb-3 flex items-center">
+                              <svg style={{ color: colors.success }} className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              Frequently Bought Together
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {suggestions.frequently_bought_together.slice(0, 4).map((item, index) => (
+                                <SuggestionCard 
+                                  key={index} 
+                                  item={item} 
+                                  reason={item.reason} 
+                                  confidence={item.confidence}
+                                  onAdd={addSuggestedItem} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {suggestions.complete_the_look?.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-base mb-3 flex items-center">
+                              <svg style={{ color: colors.primary }} className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
+                              </svg>
+                              Complete the Look
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {suggestions.complete_the_look.slice(0, 4).map((item, index) => (
+                                <SuggestionCard 
+                                  key={index} 
+                                  item={item} 
+                                  reason={item.reason}
+                                  confidence={item.confidence}
+                                  onAdd={addSuggestedItem} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {suggestions.you_may_also_like?.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-base mb-3 flex items-center">
+                              <svg style={{ color: colors.secondary }} className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+                              </svg>
+                              You May Also Like
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {suggestions.you_may_also_like.slice(0, 4).map((item, index) => (
+                                <SuggestionCard 
+                                  key={index} 
+                                  item={item} 
+                                  reason={item.reason}
+                                  confidence={item.confidence}
+                                  onAdd={addSuggestedItem} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Order Summary with AI Pricing */}
-          <div className="lg:col-span-1">
-            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-lg p-6 sticky top-24`}>
+          {/* Professional Order Summary */}
+          <div className="xl:col-span-1">
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              style={{
+                background: colors.cardBg,
+                borderColor: colors.border
+              }}
+              className="p-6 rounded-lg border sticky top-24"
+            >
               <h2 className="text-xl font-semibold mb-6 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                </svg>
-                Smart Order Summary
+                <div style={{ background: colors.success + '20', color: colors.success }} className="w-8 h-8 rounded-full flex items-center justify-center mr-3">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                Order Summary
               </h2>
               
               {/* Purchase Predictions */}
               {predictions.completion_probability && (
-                <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-800">Completion Probability</span>
-                    <span className="text-lg font-bold text-blue-600">
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                      Completion Probability
+                    </span>
+                    <span style={{ color: colors.primary }} className="text-lg font-bold">
                       {Math.round(predictions.completion_probability * 100)}%
                     </span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${predictions.completion_probability * 100}%` }}
-                    ></div>
+                  <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${predictions.completion_probability * 100}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      style={{ background: colors.primary }}
+                      className="h-2 rounded-full"
+                    ></motion.div>
                   </div>
-                </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+                    Based on your shopping behavior
+                  </p>
+                </motion.div>
               )}
 
               <div className="space-y-4">
-                <div className="flex justify-between">
+                <div className="flex justify-between text-base">
                   <span>Subtotal ({cart.reduce((total, item) => total + item.quantity, 0)} items)</span>
-                  <span>${calculateSubtotal().toFixed(2)}</span>
+                  <span className="font-semibold">${calculateSubtotal().toFixed(2)}</span>
                 </div>
 
                 {/* AI Discounts */}
-                {smartPricing?.discounts?.map((discount, index) => (
-                  <div key={index} className="flex justify-between text-green-600">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      {discount.name}
-                    </span>
-                    <span>-${discount.amount.toFixed(2)}</span>
-                  </div>
-                ))}
+                <AnimatePresence>
+                  {smartPricing?.discounts?.map((discount, index) => (
+                    <motion.div 
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      style={{ 
+                        background: colors.success + '20',
+                        color: colors.success
+                      }}
+                      className="flex justify-between p-3 rounded-lg"
+                    >
+                      <span className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <div className="font-medium">{discount.name}</div>
+                          <div className="text-xs opacity-75">{discount.description}</div>
+                        </div>
+                      </span>
+                      <span className="font-bold">-${discount.amount.toFixed(2)}</span>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
                 <div className="flex justify-between">
                   <span>Tax (8%)</span>
                   <span>${(calculateSubtotal() * 0.08).toFixed(2)}</span>
                 </div>
                 
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="flex items-center">
                     Shipping
                     {smartPricing?.free_shipping_eligible && (
-                      <svg className="w-4 h-4 ml-1 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <svg style={{ color: colors.success }} className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     )}
                   </span>
-                  <span>{smartPricing?.shipping === 0 ? 'Free' : `$${smartPricing?.shipping?.toFixed(2) || '10.00'}`}</span>
+                  <span style={{ color: smartPricing?.shipping === 0 ? colors.success : colors.text }} className={smartPricing?.shipping === 0 ? 'font-semibold' : ''}>
+                    {smartPricing?.shipping === 0 ? 'Free!' : `$${smartPricing?.shipping?.toFixed(2) || '10.00'}`}
+                  </span>
                 </div>
 
                 {/* Smart Pricing Recommendations */}
-                {smartPricing?.recommendations?.map((rec, index) => (
-                  <div key={index} className="p-2 bg-blue-50 rounded text-sm text-blue-800">
-                    {rec.message}
-                  </div>
-                ))}
+                <AnimatePresence>
+                  {smartPricing?.recommendations?.map((rec, index) => (
+                    <motion.div 
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                    >
+                      <div className="flex items-center">
+                        <svg style={{ color: colors.primary }} className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        {rec.message}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
-                <hr className={`border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`} />
+                <hr style={{ borderColor: colors.border }} className="border-t-2" />
                 
-                <div className="flex justify-between font-bold text-lg">
+                <div className="flex justify-between text-xl font-bold">
                   <span>Total</span>
-                  <span>${calculateTotal().toFixed(2)}</span>
+                  <span style={{ color: colors.primary }}>
+                    ${calculateTotal().toFixed(2)}
+                  </span>
                 </div>
 
                 {/* Total Savings Display */}
                 {smartPricing?.savings > 0 && (
-                  <div className="flex justify-between text-green-600 font-semibold">
-                    <span>You Saved</span>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                      background: colors.success + '20',
+                      color: colors.success
+                    }}
+                    className="flex justify-between font-bold text-base p-3 rounded-lg"
+                  >
+                    <span className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      You Saved
+                    </span>
                     <span>${smartPricing.savings.toFixed(2)}</span>
-                  </div>
+                  </motion.div>
                 )}
               </div>
 
               {/* Intervention Suggestions */}
-              {predictions.intervention_suggestions?.map((suggestion, index) => (
-                <div key={index} className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-medium text-yellow-800">{suggestion.message}</span>
-                  </div>
-                </div>
-              ))}
+              <AnimatePresence>
+                {predictions.intervention_suggestions?.map((suggestion, index) => (
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg"
+                  >
+                    <div className="flex items-center">
+                      <svg style={{ color: colors.warning }} className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                        {suggestion.message}
+                      </span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
 
-              <form onSubmit={handleSubmit} className="mt-6">
-                <button
+              <form onSubmit={handleSubmit} className="mt-8">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-lg text-lg font-medium hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  style={{ background: colors.primary }}
+                  className="w-full text-white py-4 px-6 rounded-lg text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:opacity-90"
                 >
                   {loading ? (
                     <div className="flex items-center justify-center">
@@ -580,15 +842,25 @@ const Checkout = () => {
                       Processing...
                     </div>
                   ) : (
-                    `Smart Checkout - $${calculateTotal().toFixed(2)}`
+                    <div className="flex items-center justify-center">
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Complete Purchase - ${calculateTotal().toFixed(2)}
+                    </div>
                   )}
-                </button>
+                </motion.button>
               </form>
               
-              <p className="text-sm text-gray-500 mt-4 text-center">
-                AI-powered pricing and recommendations
-              </p>
-            </div>
+              <div className="mt-4 text-center">
+                <p style={{ color: colors.textSecondary }} className="text-sm flex items-center justify-center">
+                  <svg style={{ color: colors.success }} className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Secure checkout with AI optimization
+                </p>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>

@@ -6,8 +6,6 @@ from services.cart_ai import CartAI
 import uuid
 import traceback
 
-# Load environment variables
-load_dotenv()
 
 checkout_bp = Blueprint('checkout', __name__)
 

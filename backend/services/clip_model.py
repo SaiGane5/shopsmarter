@@ -17,9 +17,11 @@ import random
 # Load environment variables
 load_dotenv()
 
-# OpenRouter configuration - now from environment variables
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-OPENROUTER_URL = os.getenv('OPENROUTER_URL')
+
+
+# Fallback to environment variable if direct value is empty or None
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_URL = os.getenv("OPENROUTER_URL")
 
 # Validate that required environment variables are loaded
 if not OPENROUTER_API_KEY:

@@ -513,151 +513,337 @@ def search_by_image_id(image_id, limit=10, index_type='image'):
         return []
 
 def get_complementary_products(product, limit=10):
-    """Enhanced complementary products with primary color awareness"""
+    """ENHANCED: True complementary products - items that go WITH the main product"""
     try:
         if not product:
             return []
         
-        print(f"Getting complementary products with color intelligence for {product.name}")
+        print(f"🛍️ Getting COMPLEMENTARY products for: {product.name}")
         
         product_name = product.name.lower() if product.name else ''
         product_desc = product.description.lower() if product.description else ''
+        product_category = product.category.lower() if product.category else ''
         
-        # Ultra-precise gender detection (same as before)
+        # Detect gender context
         gender_context = 'unisex'
-        age_context = 'adult'
-        
         if any(term in product_name or term in product_desc for term in ['women', 'woman', 'female', 'ladies', 'girl']):
             gender_context = 'women'
         elif any(term in product_name or term in product_desc for term in ['men', 'man', 'male', 'guys']):
             gender_context = 'men'
-        elif any(term in product_name or term in product_desc for term in ['kids', 'children', 'child', 'infant', 'baby', 'teen']):
+        elif any(term in product_name or term in product_desc for term in ['kids', 'children', 'child', 'teen']):
             gender_context = 'kids'
-            if any(term in product_name for term in ['infant', 'baby']):
-                age_context = 'infant'
-            elif any(term in product_name for term in ['child', 'kid']):
-                age_context = 'child'
-            elif 'teen' in product_name:
-                age_context = 'teen'
         
-        print(f"Detected context: {gender_context} {age_context}")
+        # Detect product color for matching
+        detected_colors = []
+        colors_to_check = ['black', 'white', 'red', 'blue', 'green', 'yellow', 'pink', 'purple', 'brown', 'gray', 'grey', 'orange', 'navy']
+        for color in colors_to_check:
+            if color in product_name:
+                detected_colors.append(color)
         
-        # Determine source type (same as before)
-        if any(term in product_name for term in ['shirt', 't-shirt', 'top', 'blouse', 'dress', 'sweater', 'hoodie']):
-            source_type = 'clothing_top'
-        elif any(term in product_name for term in ['pants', 'jeans', 'trouser', 'skirt']):
-            source_type = 'clothing_bottom'
-        elif any(term in product_name for term in ['shoe', 'sneaker', 'boot', 'sandal']):
-            source_type = 'shoes'
-        elif any(term in product_name for term in ['bag', 'backpack', 'handbag', 'wallet']):
-            source_type = 'accessories'
-        else:
-            source_type = 'general'
+        print(f"📊 Context: Gender={gender_context}, Colors={detected_colors}")
         
-        # Build ULTRA-STRICT gender-aware complementary queries (same as before)
-        complementary_queries = []
+        # COMPLEMENTARY MAPPING LOGIC
+        complementary_categories = []
         
-        if gender_context == 'women' and age_context == 'adult':
-            if source_type == 'clothing_top':
-                complementary_queries = [
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%pants%'), Product.name.ilike('%skirt%'), Product.name.ilike('%jeans%'))),
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sandal%'), Product.name.ilike('%heel%'))),
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%bag%'), Product.name.ilike('%handbag%'), Product.name.ilike('%purse%')))
-                ]
-            elif source_type == 'clothing_bottom':
-                complementary_queries = [
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shirt%'), Product.name.ilike('%top%'), Product.name.ilike('%blouse%'))),
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sandal%'), Product.name.ilike('%heel%'))),
-                    and_(Product.name.ilike('%women%'), or_(Product.name.ilike('%bag%'), Product.name.ilike('%jewelry%')))
-                ]
-                
-        elif gender_context == 'men' and age_context == 'adult':
-            if source_type == 'clothing_top':
-                complementary_queries = [
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%pants%'), Product.name.ilike('%jeans%'), Product.name.ilike('%trouser%'))),
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sneaker%'), Product.name.ilike('%boot%'))),
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%belt%'), Product.name.ilike('%watch%'), Product.name.ilike('%wallet%')))
-                ]
-            elif source_type == 'clothing_bottom':
-                complementary_queries = [
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shirt%'), Product.name.ilike('%t-shirt%'), Product.name.ilike('%polo%'))),
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%shoe%'), Product.name.ilike('%sneaker%'), Product.name.ilike('%boot%'))),
-                    and_(Product.name.ilike('%men%'), or_(Product.name.ilike('%belt%'), Product.name.ilike('%watch%')))
-                ]
-                
-        elif gender_context == 'kids':
-            complementary_queries = [
-                and_(or_(Product.name.ilike('%kids%'), Product.name.ilike('%children%'), Product.name.ilike('%child%')), 
-                     Product.category.ilike('%clothing%')),
-                and_(or_(Product.name.ilike('%kids%'), Product.name.ilike('%children%'), Product.name.ilike('%child%')), 
-                     Product.category.ilike('%shoes%'))
-            ]
-        else:
-            # Unisex - but still avoid wrong categories
-            complementary_queries = [
-                and_(not_(Product.name.ilike('%infant%')), not_(Product.name.ilike('%baby%')), Product.category.ilike('%clothing%')),
-                and_(not_(Product.name.ilike('%infant%')), not_(Product.name.ilike('%baby%')), Product.category.ilike('%shoes%'))
+        # 👕 CLOTHING TOPS (t-shirts, shirts, tops, blouses, dresses)
+        if any(item in product_name for item in ['shirt', 't-shirt', 'top', 'blouse', 'polo', 'sweater', 'hoodie', 'jacket']):
+            print("🎯 Main product: CLOTHING TOP")
+            complementary_categories = [
+                # Bottoms
+                {'items': ['jeans', 'pants', 'trousers', 'shorts'], 'weight': 0.4, 'type': 'bottoms'},
+                # Shoes  
+                {'items': ['shoes', 'sneakers', 'boots', 'sandals'], 'weight': 0.3, 'type': 'shoes'},
+                # Accessories
+                {'items': ['bag', 'handbag', 'backpack', 'wallet', 'belt'], 'weight': 0.2, 'type': 'accessories'},
+                # Outerwear (if main is not outerwear)
+                {'items': ['jacket', 'coat', 'blazer'], 'weight': 0.1, 'type': 'outerwear'} if 'jacket' not in product_name else None
             ]
         
-        # Execute queries with strict exclusions (same as before)
+        # 👖 CLOTHING BOTTOMS (jeans, pants, shorts, skirts)
+        elif any(item in product_name for item in ['jeans', 'pants', 'trousers', 'shorts', 'skirt']):
+            print("🎯 Main product: CLOTHING BOTTOM")
+            complementary_categories = [
+                # Tops
+                {'items': ['shirt', 't-shirt', 'top', 'blouse', 'polo'], 'weight': 0.4, 'type': 'tops'},
+                # Shoes
+                {'items': ['shoes', 'sneakers', 'boots', 'sandals'], 'weight': 0.3, 'type': 'shoes'},
+                # Accessories
+                {'items': ['belt', 'bag', 'handbag', 'wallet'], 'weight': 0.2, 'type': 'accessories'},
+                # Outerwear
+                {'items': ['jacket', 'coat', 'blazer'], 'weight': 0.1, 'type': 'outerwear'}
+            ]
+        
+        # 👗 DRESSES
+        elif 'dress' in product_name:
+            print("🎯 Main product: DRESS")
+            complementary_categories = [
+                # Shoes (most important for dresses)
+                {'items': ['shoes', 'heels', 'sandals', 'boots'], 'weight': 0.4, 'type': 'shoes'},
+                # Accessories
+                {'items': ['bag', 'handbag', 'purse', 'clutch'], 'weight': 0.3, 'type': 'accessories'},
+                # Jewelry & accessories
+                {'items': ['jewelry', 'necklace', 'earrings', 'bracelet'], 'weight': 0.2, 'type': 'jewelry'},
+                # Outerwear
+                {'items': ['jacket', 'cardigan', 'blazer'], 'weight': 0.1, 'type': 'outerwear'}
+            ]
+        
+        # 👟 SHOES
+        elif any(item in product_name for item in ['shoes', 'sneakers', 'boots', 'sandals', 'heels']):
+            print("🎯 Main product: SHOES")
+            complementary_categories = [
+                # Bottoms (shoes need something to go with)
+                {'items': ['jeans', 'pants', 'shorts'], 'weight': 0.3, 'type': 'bottoms'},
+                # Tops
+                {'items': ['shirt', 't-shirt', 'top'], 'weight': 0.3, 'type': 'tops'},
+                # Accessories
+                {'items': ['bag', 'backpack', 'belt'], 'weight': 0.2, 'type': 'accessories'},
+                # Socks (practical complementary)
+                {'items': ['socks', 'hosiery'], 'weight': 0.2, 'type': 'socks'}
+            ]
+        
+        # 👜 BAGS & ACCESSORIES
+        elif any(item in product_name for item in ['bag', 'handbag', 'backpack', 'purse', 'wallet', 'belt']):
+            print("🎯 Main product: ACCESSORY")
+            complementary_categories = [
+                # Clothing (accessories need clothing to complement)
+                {'items': ['shirt', 't-shirt', 'dress', 'top'], 'weight': 0.4, 'type': 'clothing'},
+                # Shoes
+                {'items': ['shoes', 'sneakers', 'boots'], 'weight': 0.3, 'type': 'shoes'},
+                # Other accessories
+                {'items': ['jewelry', 'watch', 'sunglasses'], 'weight': 0.2, 'type': 'accessories'},
+                # Bottoms
+                {'items': ['jeans', 'pants'], 'weight': 0.1, 'type': 'bottoms'}
+            ]
+        
+        # 💎 JEWELRY
+        elif any(item in product_name for item in ['jewelry', 'necklace', 'earrings', 'bracelet', 'ring', 'watch']):
+            print("🎯 Main product: JEWELRY")
+            complementary_categories = [
+                # Dresses (jewelry complements dresses well)
+                {'items': ['dress', 'gown'], 'weight': 0.3, 'type': 'dresses'},
+                # Tops
+                {'items': ['blouse', 'top', 'shirt'], 'weight': 0.3, 'type': 'tops'},
+                # Bags
+                {'items': ['handbag', 'purse', 'clutch'], 'weight': 0.2, 'type': 'bags'},
+                # Shoes
+                {'items': ['heels', 'sandals', 'shoes'], 'weight': 0.2, 'type': 'shoes'}
+            ]
+        
+        else:
+            # FALLBACK: General clothing
+            print("🎯 Main product: GENERAL ITEM")
+            complementary_categories = [
+                {'items': ['jeans', 'pants'], 'weight': 0.3, 'type': 'bottoms'},
+                {'items': ['shoes', 'sneakers'], 'weight': 0.3, 'type': 'shoes'},
+                {'items': ['bag', 'accessories'], 'weight': 0.2, 'type': 'accessories'},
+                {'items': ['jacket'], 'weight': 0.2, 'type': 'outerwear'}
+            ]
+        
+        # Remove None entries
+        complementary_categories = [cat for cat in complementary_categories if cat is not None]
+        
+        print(f"🎯 Complementary categories: {[cat['type'] for cat in complementary_categories]}")
+        
+        # BUILD QUERIES FOR EACH COMPLEMENTARY CATEGORY
         complementary_products = []
-        for query_condition in complementary_queries:
+        
+        for category_info in complementary_categories:
             try:
-                exclusion_conditions = []
+                items = category_info['items']
+                weight = category_info['weight']
+                category_type = category_info['type']
                 
-                if gender_context == 'men':
-                    exclusion_conditions = [
-                        not_(Product.name.ilike('%women%')),
-                        not_(Product.name.ilike('%female%')),
-                        not_(Product.name.ilike('%ladies%')),
-                        not_(Product.name.ilike('%girl%')),
-                        not_(Product.name.ilike('%infant%')),
-                        not_(Product.name.ilike('%baby%'))
-                    ]
-                elif gender_context == 'women':
-                    exclusion_conditions = [
-                        not_(Product.name.ilike('%men%')),
-                        not_(Product.name.ilike('%male%')),
-                        not_(Product.name.ilike('%guys%')),
-                        not_(Product.name.ilike('%infant%')),
-                        not_(Product.name.ilike('%baby%'))
-                    ]
+                # Build query conditions
+                item_conditions = []
+                for item in items:
+                    item_conditions.append(Product.name.ilike(f'%{item}%'))
                 
-                final_query = Product.query.filter(
-                    query_condition,
-                    Product.id != product.id
+                if not item_conditions:
+                    continue
+                
+                # Base query
+                query = Product.query.filter(
+                    or_(*item_conditions),
+                    Product.id != product.id  # Exclude the main product
                 )
                 
-                if exclusion_conditions:
-                    final_query = final_query.filter(and_(*exclusion_conditions))
+                # APPLY GENDER FILTERING (strict)
+                if gender_context != 'unisex':
+                    if gender_context == 'men':
+                        gender_include = [Product.name.ilike(f'%{term}%') for term in ['men', 'man', 'male', 'guys']]
+                        gender_exclude = [
+                            ~Product.name.ilike('%women%'),
+                            ~Product.name.ilike('%female%'),
+                            ~Product.name.ilike('%ladies%'),
+                            ~Product.name.ilike('%girl%')
+                        ]
+                        
+                        if gender_include:
+                            query = query.filter(or_(*gender_include))
+                        if gender_exclude:
+                            query = query.filter(and_(*gender_exclude))
+                    
+                    elif gender_context == 'women':
+                        gender_include = [Product.name.ilike(f'%{term}%') for term in ['women', 'woman', 'female', 'ladies']]
+                        gender_exclude = [
+                            ~Product.name.ilike('%men%'),
+                            ~Product.name.ilike('%male%'),
+                            ~Product.name.ilike('%guys%')
+                        ]
+                        
+                        if gender_include:
+                            query = query.filter(or_(*gender_include))
+                        if gender_exclude:
+                            query = query.filter(and_(*gender_exclude))
                 
-                products = final_query.limit(4).all()
-                complementary_products.extend(products)
+                # COLOR MATCHING BONUS (optional - find matching or neutral colors)
+                color_conditions = []
+                if detected_colors:
+                    # Look for same colors
+                    for color in detected_colors:
+                        color_conditions.append(Product.name.ilike(f'%{color}%'))
+                    
+                    # Add neutral colors that go with everything
+                    neutral_colors = ['black', 'white', 'gray', 'grey', 'navy']
+                    for neutral in neutral_colors:
+                        if neutral not in detected_colors:
+                            color_conditions.append(Product.name.ilike(f'%{neutral}%'))
+                
+                # Execute query
+                max_per_category = max(1, int(limit * weight))
+                category_products = query.limit(max_per_category * 2).all()
+                
+                # If we have color conditions, prefer color matches
+                if color_conditions and category_products:
+                    color_matched = []
+                    non_color_matched = []
+                    
+                    for p in category_products:
+                        p_name = p.name.lower()
+                        if any(color in p_name for color in detected_colors + ['black', 'white', 'gray', 'grey']):
+                            color_matched.append(p)
+                        else:
+                            non_color_matched.append(p)
+                    
+                    # Prefer color matches but include some variety
+                    final_category_products = color_matched[:max_per_category//2] + non_color_matched[:max_per_category//2]
+                    final_category_products = final_category_products[:max_per_category]
+                else:
+                    final_category_products = category_products[:max_per_category]
+                
+                complementary_products.extend(final_category_products)
+                
+                print(f"✅ Found {len(final_category_products)} products for {category_type}")
                 
                 if len(complementary_products) >= limit:
                     break
-                    
+                
             except Exception as e:
-                print(f"Error in complementary query: {e}")
+                print(f"❌ Error in category {category_info.get('type', 'unknown')}: {e}")
                 continue
         
-        # Remove duplicates
+        # FALLBACK: If no complementary products found, get some general items
+        if not complementary_products:
+            print("🔄 No specific complementary products found, using fallback...")
+            
+            fallback_query = Product.query.filter(
+                Product.id != product.id,
+                ~Product.name.ilike('%infant%'),
+                ~Product.name.ilike('%baby%')
+            )
+            
+            if gender_context != 'unisex':
+                if gender_context == 'men':
+                    fallback_query = fallback_query.filter(
+                        or_(Product.name.ilike('%men%'), Product.name.ilike('%male%'))
+                    )
+                elif gender_context == 'women':
+                    fallback_query = fallback_query.filter(
+                        or_(Product.name.ilike('%women%'), Product.name.ilike('%female%'))
+                    )
+            
+            complementary_products = fallback_query.limit(limit).all()
+        
+        # Remove duplicates and limit
         seen_ids = set()
-        unique_products = []
+        unique_complementary = []
         for p in complementary_products:
             if p.id not in seen_ids:
-                unique_products.append(p)
+                unique_complementary.append(p)
                 seen_ids.add(p.id)
-                if len(unique_products) >= limit:
+                if len(unique_complementary) >= limit:
                     break
         
-        print(f"Found {len(unique_products)} color-intelligent complementary products")
-        return unique_products
+        print(f"🎯 FINAL: {len(unique_complementary)} complementary products for {product.name}")
+        for p in unique_complementary[:3]:
+            print(f"   - {p.name}")
+        
+        return unique_complementary
         
     except Exception as e:
-        print(f"Error getting complementary products: {e}")
+        print(f"❌ Error getting complementary products: {e}")
         traceback.print_exc()
         return []
+
+def get_complementary_by_features(features, limit=8):
+    """Get complementary products based on extracted features"""
+    try:
+        if not isinstance(features, dict):
+            return []
+        
+        print(f"🛍️ Getting complementary products by features: {features}")
+        
+        # Extract key information
+        main_category = features.get('main_category', 'clothing').lower()
+        subcategory = features.get('subcategory', 'item').lower()
+        gender = features.get('gender', 'unisex').lower()
+        colors = features.get('primary_colors', features.get('colors', []))
+        
+        # Determine what complements this type of item
+        complementary_items = []
+        
+        if subcategory in ['t-shirt', 'shirt', 'top', 'blouse']:
+            complementary_items = ['jeans', 'pants', 'shoes', 'sneakers', 'bag']
+        elif subcategory in ['jeans', 'pants', 'trousers']:
+            complementary_items = ['shirt', 't-shirt', 'top', 'shoes', 'belt']
+        elif subcategory == 'dress':
+            complementary_items = ['shoes', 'heels', 'bag', 'jewelry']
+        elif subcategory == 'shoes':
+            complementary_items = ['jeans', 'shirt', 'bag']
+        else:
+            # General complementary items
+            complementary_items = ['shirt', 'jeans', 'shoes', 'bag']
+        
+        # Build query
+        item_conditions = [Product.name.ilike(f'%{item}%') for item in complementary_items]
+        
+        query = Product.query.filter(or_(*item_conditions))
+        
+        # Apply gender filter
+        if gender != 'unisex':
+            if gender == 'men':
+                query = query.filter(
+                    or_(Product.name.ilike('%men%'), Product.name.ilike('%male%')),
+                    ~Product.name.ilike('%women%')
+                )
+            elif gender == 'women':
+                query = query.filter(
+                    or_(Product.name.ilike('%women%'), Product.name.ilike('%female%')),
+                    ~Product.name.ilike('%men%')
+                )
+        
+        # Get products
+        products = query.limit(limit * 2).all()
+        
+        # Shuffle for variety
+        random.shuffle(products)
+        
+        return products[:limit]
+        
+    except Exception as e:
+        print(f"❌ Error getting complementary by features: {e}")
+        return []
+
 
 def fallback_similarity_search(features_or_embeddings, limit=10):
     """Enhanced fallback search with primary color awareness"""

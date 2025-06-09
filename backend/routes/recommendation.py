@@ -155,89 +155,98 @@ def get_similar_products():
 
 @recommendation_bp.route('/complementary', methods=['POST'])
 def complementary():
-    """Get complementary products with gender awareness"""
+    """Enhanced complementary products with true complementary logic"""
     try:
         data = request.json
         
         if 'product_id' in data:
             product_id = data.get('product_id')
+            limit = data.get('limit', 8)
+            
             product = Product.query.get(product_id)
             if not product:
                 return jsonify({"error": "Product not found"}), 404
             
-            complementary = get_complementary_products(product)
+            print(f"🛍️ Getting complementary products for product ID: {product_id}")
+            
+            # Get true complementary products
+            complementary = get_complementary_products(product, limit)
+            
             return jsonify({
                 "complementary_products": [p.to_dict() for p in complementary],
                 "total": len(complementary),
-                "source_product": product.to_dict()
+                "source_product": product.to_dict(),
+                "complementary_logic": "true_complementary"  # Flag to indicate this is complementary, not similar
             })
             
         elif 'features' in data:
-            # Get complementary products based on enhanced features
+            # Get complementary products based on features
+            from services.vector_search import get_complementary_by_features
+            
             features = validate_and_enhance_features(data['features'])
             if not features:
                 return jsonify({'error': 'Invalid features provided'}), 400
             
-            limit = data.get('limit', 10)
+            limit = data.get('limit', 8)
             
-            # Create a mock product for gender-aware complementary search
-            mock_product_dict = {
-                'name': f"{features.get('gender', 'unisex')} {features.get('subcategory', 'item')}",
-                'category': features.get('main_category', 'clothing'),
-                'description': f"{features.get('gender', 'unisex')} {' '.join(features.get('colors', []))} {features.get('subcategory', 'item')}"
-            }
+            print(f"🛍️ Getting complementary products by features")
             
-            # Convert to object-like structure for compatibility
-            class MockProduct:
-                def __init__(self, data):
-                    for key, value in data.items():
-                        setattr(self, key, value)
-                    self.id = 0  # Dummy ID
-            
-            mock_product = MockProduct(mock_product_dict)
-            
-            # Get gender-aware complementary products
-            complementary = get_complementary_products(mock_product, limit)
+            # Get complementary products by features
+            complementary = get_complementary_by_features(features, limit)
             
             return jsonify({
                 "complementary_products": [p.to_dict() for p in complementary],
                 "total": len(complementary),
-                "source_features": features
+                "source_features": features,
+                "complementary_logic": "feature_based_complementary"
             })
         
         else:
             return jsonify({"error": "Either product_id or features required"}), 400
             
     except Exception as e:
-        print(f"Error in complementary: {e}")
+        print(f"❌ Error in complementary endpoint: {e}")
         traceback.print_exc()
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 @recommendation_bp.route('/refine', methods=['POST'])
 def refine_results():
-    """Refine product recommendations based on user prompt"""
+    """Refine product recommendations with enhanced response handling"""
     try:
         data = request.json
         
         if not data or 'products' not in data or 'prompt' not in data:
-            return jsonify({'error': 'Missing products or prompt'}), 400
+            return jsonify({
+                'error': 'Missing products or prompt',
+                'type': 'error',
+                'response': 'Missing required data for refinement.',
+                'products': []
+            }), 400
         
         products = data['products']
         prompt = data['prompt']
         
-        if not products:
-            return jsonify({'error': 'No products provided for refinement'}), 400
-        
         print(f"Refining {len(products)} products with prompt: {prompt}")
         
         # Use enhanced NLP to refine recommendations
-        refined_products = refine_recommendations(products, prompt)
+        result = refine_recommendations(products, prompt)
         
-        print(f"Refinement returned {len(refined_products)} products")
+        # Extract components with proper defaults
+        result_type = result.get('type', 'filtered')
+        result_response = result.get('response', 'Products have been refined.')
+        result_products = result.get('products', products)
+        
+        # Ensure products is always a list
+        if not isinstance(result_products, list):
+            result_products = products
         
         return jsonify({
-            'recommendations': refined_products,
-            'total': len(refined_products),
+            'success': True,
+            'type': result_type,
+            'response': result_response,
+            'products': result_products,        # Frontend expects this
+            'recommendations': result_products, # For compatibility
+            'total': len(result_products),
             'original_count': len(products),
             'prompt': prompt
         })
@@ -245,7 +254,14 @@ def refine_results():
     except Exception as e:
         print(f"Error in refine_results: {e}")
         traceback.print_exc()
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+        return jsonify({
+            'error': 'Failed to refine products',
+            'type': 'error',
+            'response': 'I encountered an error while processing your request.',
+            'products': data.get('products', []) if data else [],
+            'recommendations': data.get('products', []) if data else []
+        }), 500
+
 
 @recommendation_bp.route('/status', methods=['GET'])
 def get_status():
